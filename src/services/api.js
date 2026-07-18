@@ -7,8 +7,6 @@ import API from "../api/axios";
 export const registerSeller = (data) =>
   API.post("/users/admin/register-seller", data);
 
-export const loginInit = (data) => API.post("/users/login/init", data);
-
 export const login = (data) => API.post("/users/login", data);
 
 export const forgotPin = (data) => API.post("/users/forgot-pin", data);

@@ -1,25 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Phone, ShieldCheck, Lock, ArrowLeft, ArrowRight } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import logoHorizontal from "../../assets/bizbite_logo_horizontal.png";
-import { useAuth } from "../../context/useAuth";
+import useAuthStore from "../../store/authStore";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Step order: phone -> otp -> pin
 const STEPS = ["phone", "otp", "pin"];
 
-// Mock credentials for local UI testing (no backend wired yet)
-const MOCK_OTP = "1234";
-const MOCK_PIN = "1234";
-
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { sendOTP, verifyOTP, resendOTP, login, loading } = useAuthStore();
 
   const [step, setStep] = useState("phone");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const [showPin, setShowPin] = useState(false);
+  const [reqId, setReqId] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendMessage, setResendMessage] = useState("");
 
   const [formData, setFormData] = useState({
     phoneNumber: "",
@@ -34,7 +32,7 @@ export default function Login() {
     });
   };
 
-  // Step 1: Enter Phone Number -> POST /login/init
+  // Step 1: Enter Phone Number -> POST /users/send-otp
   const handlePhoneSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -44,11 +42,38 @@ export default function Login() {
       return;
     }
 
-    setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    setLoading(false);
+    try {
+      const data = await sendOTP({ identifier: formData.phoneNumber });
 
-    setStep("otp");
+      // Backend returns the reqId as data.data.message (mislabeled), not data.reqId
+      setReqId(data.reqId || data.data?.reqId || data.data?.message || "");
+      setStep("otp");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to continue.");
+    }
+  };
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(
+      () => setResendCooldown((s) => Math.max(s - 1, 0)),
+      1000,
+    );
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  // Resend OTP -> POST /users/resend-otp
+  const handleResendOtp = async () => {
+    setError("");
+    setResendMessage("");
+
+    try {
+      await resendOTP({ reqId });
+      setResendMessage("OTP resent to your phone.");
+      setResendCooldown(30);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to resend OTP.");
+    }
   };
 
   // Step 2: Receive & Enter OTP -> POST /verify-otp (purpose: LOGIN)
@@ -61,22 +86,17 @@ export default function Login() {
       return;
     }
 
-    setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    setLoading(false);
-
-    if (formData.otp.trim() !== MOCK_OTP) {
-      setError("Invalid OTP. Please try again.");
-      return;
+    try {
+      await verifyOTP({ reqId, otp: formData.otp, purpose: "LOGIN" });
+      setStep("pin");
+    } catch (err) {
+      setError(err.response?.data?.message || "Invalid OTP. Please try again.");
     }
-
-    setStep("pin");
   };
 
   // Step 3: Enter PIN -> POST /login { identifier, pin, verificationToken }
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     setError("");
 
     if (!formData.pin.trim()) {
@@ -84,35 +104,20 @@ export default function Login() {
       return;
     }
 
-    setLoading(true);
+    try {
+      const verificationToken = useAuthStore.getState().verificationToken;
 
-    // Fake loading
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+      await login({
+        identifier: formData.phoneNumber,
+        pin: formData.pin,
+        fcm_token: null,
+        verificationToken,
+      });
 
-    if (formData.pin.trim() !== MOCK_PIN) {
-      setError("Invalid PIN. Please try again.");
-      setLoading(false);
-      return;
+      navigate("/seller/dashboard");
+    } catch (err) {
+      setError(err.response?.data?.message || "Invalid PIN. Please try again.");
     }
-
-    const seller = {
-      id: 1,
-      name: "Demo Seller",
-      phone: formData.phoneNumber,
-      storeName: "BizBite Demo Restaurant",
-      role: "seller",
-    };
-
-    const fakeToken = "demo-seller-token";
-
-    localStorage.setItem("token", fakeToken);
-    localStorage.setItem("user", JSON.stringify(seller));
-
-    login(seller, fakeToken);
-
-    setLoading(false);
-
-    navigate("/seller/dashboard");
   };
 
   const goBack = () => {
@@ -377,10 +382,11 @@ export default function Login() {
                           />
                         </div>
 
-                        <p className="mt-1.5 text-xs text-gray-400">
-                          Use <span className="font-semibold">1234</span> for
-                          testing.
-                        </p>
+                        {resendMessage && (
+                          <p className="mt-2 text-xs font-semibold text-[#16522d]">
+                            {resendMessage}
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between text-sm">
@@ -394,8 +400,12 @@ export default function Login() {
 
                         <button
                           type="button"
-                          className="font-semibold text-[#16522d] transition hover:text-[#ffc700]">
-                          Resend OTP
+                          onClick={handleResendOtp}
+                          disabled={loading || resendCooldown > 0}
+                          className="font-semibold text-[#16522d] transition hover:text-[#ffc700] disabled:cursor-not-allowed disabled:opacity-50">
+                          {resendCooldown > 0
+                            ? `Resend in ${resendCooldown}s`
+                            : "Resend OTP"}
                         </button>
                       </div>
 
@@ -466,10 +476,6 @@ export default function Login() {
                           </button>
                         </div>
 
-                        <p className="mt-1.5 text-xs text-gray-400">
-                          Use <span className="font-semibold">1234</span> for
-                          testing.
-                        </p>
                       </div>
 
                       <div className="flex items-center justify-between text-sm">
@@ -481,11 +487,11 @@ export default function Login() {
                           Back
                         </button>
 
-                        <button
-                          type="button"
+                        <Link
+                          to="/seller/forgot-pin"
                           className="font-semibold text-[#16522d] transition hover:text-[#ffc700]">
                           Forgot PIN?
-                        </button>
+                        </Link>
                       </div>
 
                       <button
