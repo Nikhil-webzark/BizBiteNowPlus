@@ -1,4 +1,4 @@
-import  { useState } from "react";
+import { useState } from "react";
 import useAuthStore from "../../store/authStore";
 import {
   User,
@@ -81,7 +81,7 @@ export default function RegisterCustomer() {
 
       setReqId(data.data?.reqId || data.reqId || data.data?.message || "");
       setShowOTPModal(true);
-    } catch{
+    } catch {
       setOtpError("Network error while sending OTP.");
     } finally {
       setOtpLoading(false);
@@ -125,7 +125,7 @@ export default function RegisterCustomer() {
       setIsPhoneVerified(true);
       setShowOTPModal(false);
       setOtp("");
-    } catch{
+    } catch {
       setOtpError("Network error while verifying OTP.");
     } finally {
       setOtpLoading(false);
@@ -148,7 +148,7 @@ export default function RegisterCustomer() {
       if (!res.ok || !data.success) {
         setOtpError(data.message || "Failed to resend OTP.");
       }
-    } catch  {
+    } catch {
       setOtpError("Network error while resending OTP.");
     } finally {
       setOtpLoading(false);
@@ -210,7 +210,7 @@ export default function RegisterCustomer() {
       localStorage.setItem("customerId", data.customer?.id || "");
 
       navigate("/customer");
-    } catch  {
+    } catch {
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
@@ -380,10 +380,10 @@ export default function RegisterCustomer() {
                   Create Customer Account
                 </h2>
 
-                <p className="mt-2 text-center text-sm text-gray-500">
+                {/* <p className="mt-2 text-center text-sm text-gray-500">
                   Register once and enjoy rewards, coupons and personalized
                   offers.
-                </p>
+                </p> */}
 
                 {error && (
                   <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
@@ -436,19 +436,20 @@ export default function RegisterCustomer() {
                             className="w-full bg-transparent px-3 text-sm outline-none"
                           />
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={handleSendOtp}
-                          disabled={otpLoading || isPhoneVerified}
-                          className="rounded-xl bg-[#16522d] px-4 text-sm font-semibold text-white transition hover:bg-[#1d6438] disabled:opacity-60"
-                        >
-                          {isPhoneVerified
-                            ? "Verified ✓"
-                            : otpLoading
-                              ? "Sending..."
-                              : "Verify"}
-                        </button>
+                        {formData.customer_phone.length === 10 && (
+                          <button
+                            type="button"
+                            onClick={handleSendOtp}
+                            disabled={otpLoading || isPhoneVerified}
+                            className=" h-10 rounded-xl bg-[#16522d] px-4 text-sm font-semibold text-white transition hover:bg-[#1d6438] disabled:opacity-60"
+                          >
+                            {isPhoneVerified
+                              ? "Verified ✓"
+                              : otpLoading
+                                ? "Sending..."
+                                : "Send"}
+                          </button>
+                        )}
                       </div>
                     </div>
 
