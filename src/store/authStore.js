@@ -3,7 +3,6 @@ import { persist } from "zustand/middleware";
 
 import {
   login,
-  loginInit,
   forgotPin,
   resetPin,
   changePin,
@@ -23,6 +22,7 @@ const useAuthStore = create(
       user: null,
       token: null,
       role: null,
+      profile: null,
 
       loading: false,
       error: null,
@@ -32,34 +32,7 @@ const useAuthStore = create(
       isAuthenticated: false,
 
       // ===========================
-      // LOGIN STEP 1
-      // ===========================
-
-      loginInit: async (payload) => {
-        try {
-          set({
-            loading: true,
-            error: null,
-          });
-
-          const res = await loginInit(payload);
-
-          return res.data;
-        } catch (err) {
-          set({
-            error: err.response?.data?.message || "Login failed",
-          });
-
-          throw err;
-        } finally {
-          set({
-            loading: false,
-          });
-        }
-      },
-
-      // ===========================
-      // LOGIN STEP 2
+      // LOGIN
       // ===========================
 
       login: async (payload) => {
@@ -76,7 +49,8 @@ const useAuthStore = create(
           set({
             token: data.token,
             user: data.user,
-            role: data.role,
+            role: data.user?.role,
+            profile: data.profile,
             isAuthenticated: true,
           });
 
@@ -254,6 +228,7 @@ const useAuthStore = create(
           user: null,
           token: null,
           role: null,
+          profile: null,
           verificationToken: null,
           isAuthenticated: false,
           error: null,

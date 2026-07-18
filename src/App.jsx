@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 // Auth
 
 import Login from "./pages/Auth/Login";
+import ForgotPin from "./pages/Auth/ForgotPin";
 import RegisterSeller from "./pages/Auth/RegisterSeller";
 import RegisterSuccess from "./pages/Auth/RegisterSuccess";
 
@@ -81,6 +82,8 @@ export default function App() {
         {/* Authentication */}
 
         <Route path="/seller/login" element={<Login />} />
+
+        <Route path="/seller/forgot-pin" element={<ForgotPin />} />
 
         <Route path="/seller/register" element={<RegisterSeller />} />
 
