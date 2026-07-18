@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   User,
   Mail,
@@ -111,8 +111,7 @@ export default function RegisterSeller() {
 
               <button
                 onClick={handleVerifyOTP}
-                className="mt-8 w-full rounded-xl bg-gradient-to-r from-[#16522d] to-[#2d6a4f] py-4 font-semibold text-white transition hover:opacity-95"
-              >
+                className="mt-8 w-full rounded-xl bg-gradient-to-r from-[#16522d] to-[#2d6a4f] py-4 font-semibold text-white transition hover:opacity-95">
                 Verify OTP
               </button>
 
@@ -121,8 +120,7 @@ export default function RegisterSeller() {
                   setShowOTPModal(false);
                   setOtp("");
                 }}
-                className="mt-3 w-full rounded-xl border border-gray-300 py-3 font-medium transition hover:bg-gray-50"
-              >
+                className="mt-3 w-full rounded-xl border border-gray-300 py-3 font-medium transition hover:bg-gray-50">
                 Cancel
               </button>
             </div>
@@ -137,8 +135,7 @@ export default function RegisterSeller() {
             duration: 0.45,
             ease: "easeInOut",
           }}
-          className="w-full h-4xl max-w-6xl"
-        >
+          className="w-full h-4xl max-w-6xl">
           <div className="relative z-10 w-full max-w-6xl grid lg:grid-cols-2 rounded-[32px] overflow-hidden shadow-[0_40px_80px_rgba(22,82,45,0.15)]">
             {/* LEFT PANEL */}
 
@@ -189,8 +186,7 @@ export default function RegisterSeller() {
                 ].map((item) => (
                   <div
                     key={item.title}
-                    className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2.5"
-                  >
+                    className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2.5">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#ffc700] font-black text-[#16522d]">
                       ✓
                     </div>
@@ -425,15 +421,13 @@ export default function RegisterSeller() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#16522d] text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:bg-[#1d6438] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-70"
-                  >
+                    className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#16522d] text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:bg-[#1d6438] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-70">
                     {loading ? (
                       <>
                         <svg
                           className="h-5 w-5 animate-spin"
                           viewBox="0 0 24 24"
-                          fill="none"
-                        >
+                          fill="none">
                           <circle
                             cx="12"
                             cy="12"
@@ -482,8 +476,7 @@ export default function RegisterSeller() {
 
                 <Link
                   to="/seller/login"
-                  className="group flex h-12 w-full items-center justify-center rounded-xl border-2 border-[#16522d] text-sm font-semibold text-[#16522d] transition-all duration-300 hover:bg-[#16522d] hover:text-white"
-                >
+                  className="group flex h-12 w-full items-center justify-center rounded-xl border-2 border-[#16522d] text-sm font-semibold text-[#16522d] transition-all duration-300 hover:bg-[#16522d] hover:text-white">
                   Login Instead
                   <ArrowRight
                     size={18}

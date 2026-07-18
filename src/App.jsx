@@ -72,8 +72,7 @@ export default function App() {
         p-0
         box-border
         overflow-x-hidden
-      "
-    >
+      ">
       <Routes>
         {/* Default */}
 
@@ -131,7 +130,6 @@ export default function App() {
             element={<PrivacySecurity />}
           />
 
-
           <Route path="profile/terms-policy" element={<TermsPolicy />} />
         </Route>
 
@@ -145,8 +143,7 @@ export default function App() {
             <FestiveMenuProvider>
               <DashboardLayout />
             </FestiveMenuProvider>
-          }
-        >
+          }>
           <Route index element={<Navigate to="dashboard" replace />} />
 
           <Route path="dashboard" element={<SellerDashboard />} />
@@ -198,8 +195,7 @@ export default function App() {
                 items-center
                 justify-center
                 p-4
-              "
-            >
+              ">
               <div
                 className="
                   bg-white
@@ -212,15 +208,13 @@ export default function App() {
                   border
                   border-emerald-100
                   shadow-xl
-                "
-              >
+                ">
                 <h3
                   className="
                     text-lg
                     font-black
                     text-slate-900
-                  "
-                >
+                  ">
                   Registration Successful!
                 </h3>
 
@@ -238,8 +232,7 @@ export default function App() {
                     py-2.5
                     rounded-xl
                     font-black
-                  "
-                >
+                  ">
                   Go To Storefront Market
                 </a>
               </div>
