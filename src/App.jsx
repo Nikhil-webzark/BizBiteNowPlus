@@ -61,6 +61,7 @@ import PolicyDetail from "./pages/customer/PolicyDetail";
 import PrivacySecurity from "./pages/customer/PrivacySecurity";
 import Favourites from "./pages/customer/Favourites";
 import Notifications from "./pages/customer/Notifications";
+import CustomerRegister from "./pages/Auth/CustomerRegister";
 export default function App() {
   return (
     <div
@@ -84,6 +85,7 @@ export default function App() {
         <Route path="/seller/login" element={<Login />} />
 
         <Route path="/seller/register" element={<RegisterSeller />} />
+        <Route path="/customer/register" element={<CustomerRegister />} />
 
         <Route path="/seller/register-success" element={<RegisterSuccess />} />
 
