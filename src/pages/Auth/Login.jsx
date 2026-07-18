@@ -1,22 +1,30 @@
-import React, { useState } from "react";
-import { Mail, Lock, ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { Phone, ShieldCheck, Lock, ArrowLeft, ArrowRight } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import logoHorizontal from "../../assets/bizbite_logo_horizontal.png";
 import { useAuth } from "../../context/AuthContext";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+
+// Step order: phone -> otp -> pin
+const STEPS = ["phone", "otp", "pin"];
+
+// Mock credentials for local UI testing (no backend wired yet)
+const MOCK_OTP = "1234";
+const MOCK_PIN = "1234";
 
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
 
+  const [step, setStep] = useState("phone");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPin, setShowPin] = useState(false);
 
   const [formData, setFormData] = useState({
-    email: "",
+    phoneNumber: "",
+    otp: "",
     pin: "",
-    fcm_token: null,
   });
 
   const handleChange = (e) => {
@@ -26,13 +34,53 @@ export default function Login() {
     });
   };
 
+  // Step 1: Enter Phone Number -> POST /login/init
+  const handlePhoneSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    if (!/^[0-9]{10}$/.test(formData.phoneNumber.trim())) {
+      setError("Enter a valid 10-digit phone number.");
+      return;
+    }
+
+    setLoading(true);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    setLoading(false);
+
+    setStep("otp");
+  };
+
+  // Step 2: Receive & Enter OTP -> POST /verify-otp (purpose: LOGIN)
+  const handleOtpSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    if (!/^[0-9]{4,6}$/.test(formData.otp.trim())) {
+      setError("Enter the OTP sent to your phone.");
+      return;
+    }
+
+    setLoading(true);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    setLoading(false);
+
+    if (formData.otp.trim() !== MOCK_OTP) {
+      setError("Invalid OTP. Please try again.");
+      return;
+    }
+
+    setStep("pin");
+  };
+
+  // Step 3: Enter PIN -> POST /login { identifier, pin, verificationToken }
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     setError("");
 
-    if (!formData.email.trim() || !formData.pin.trim()) {
-      setError("Please enter your email and PIN.");
+    if (!formData.pin.trim()) {
+      setError("Please enter your PIN.");
       return;
     }
 
@@ -41,10 +89,16 @@ export default function Login() {
     // Fake loading
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
+    if (formData.pin.trim() !== MOCK_PIN) {
+      setError("Invalid PIN. Please try again.");
+      setLoading(false);
+      return;
+    }
+
     const seller = {
       id: 1,
       name: "Demo Seller",
-      email: formData.email,
+      phone: formData.phoneNumber,
       storeName: "BizBite Demo Restaurant",
       role: "seller",
     };
@@ -59,6 +113,12 @@ export default function Login() {
     setLoading(false);
 
     navigate("/seller/dashboard");
+  };
+
+  const goBack = () => {
+    setError("");
+    const idx = STEPS.indexOf(step);
+    if (idx > 0) setStep(STEPS[idx - 1]);
   };
 
   return (
@@ -78,8 +138,7 @@ export default function Login() {
             duration: 0.45,
             ease: "easeInOut",
           }}
-          className="w-full max-w-6xl"
-        >
+          className="w-full max-w-6xl">
           {/* Main Card */}
 
           <div className="relative z-10 w-full max-w-6xl grid lg:grid-cols-2 rounded-[32px] overflow-hidden  shadow-[0_40px_80px_rgba(22,82,45,0.15)]">
@@ -165,7 +224,7 @@ export default function Login() {
             {/* RIGHT PANEL */}
 
             <div className="flex items-center justify-center bg-white px-10 py-6">
-              <div className="w-full max-w-lg">
+              <div className="w-full max-w-sm">
                 {/* Mobile Logo */}
 
                 <div className="mb-5 flex justify-center lg:hidden">
@@ -173,195 +232,324 @@ export default function Login() {
                 </div>
 
                 <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-                  BizbitsNow<span className="text-emerald-500">PLUS</span>
+                  BizbitsNow
                 </h1>
 
                 <h2 className="mt-4 text-3xl font-black text-[#16522d]">
-                  Welcome Back
+                  {step === "phone" && "Welcome Back"}
+                  {step === "otp" && "Verify OTP"}
+                  {step === "pin" && "Enter Your PIN"}
                 </h2>
 
                 <p className="mt-1 text-gray-500 leading-6">
-                  Sign in to manage your restaurant, orders and customers.
+                  {step === "phone" &&
+                    "Sign in to manage your restaurant, orders and customers."}
+                  {step === "otp" && (
+                    <>
+                      Enter the code sent to{" "}
+                      <span className="font-semibold text-[#16522d]">
+                        +91 {formData.phoneNumber}
+                      </span>
+                    </>
+                  )}
+                  {step === "pin" &&
+                    "Enter your 4-digit security PIN to continue."}
                 </p>
+
+                {/* ================= STEP INDICATOR ================= */}
+
+                <div className="mt-4 mb-2 flex items-center gap-2">
+                  {STEPS.map((s, i) => (
+                    <div
+                      key={s}
+                      className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
+                        STEPS.indexOf(step) >= i
+                          ? "bg-[#16522d]"
+                          : "bg-gray-200"
+                      }`}
+                    />
+                  ))}
+                </div>
 
                 {/* ================= ERROR ================= */}
 
                 {error && (
-                  <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+                  <div className="mb-4 mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
                     {error}
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* ================= EMAIL ================= */}
+                <AnimatePresence mode="wait">
+                  {/* ================= STEP 1: PHONE ================= */}
 
-                  <div>
-                    <label
-                      htmlFor="email"
-                      className="mb-2 block w-full text-left text-sm font-semibold text-[#16522d]"
-                    >
-                      Email Address
-                    </label>
+                  {step === "phone" && (
+                    <motion.form
+                      key="phone"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.25 }}
+                      onSubmit={handlePhoneSubmit}
+                      className="mt-4 space-y-4">
+                      <div>
+                        <label
+                          htmlFor="phoneNumber"
+                          className="mb-2 block w-full text-left text-sm font-semibold text-[#16522d]">
+                          Phone Number
+                        </label>
 
-                    <div className="group flex items-center rounded-xl border border-gray-200 bg-white px-4 transition-all duration-300 focus-within:border-[#16522d] focus-within:ring-4 focus-within:ring-[#16522d]/10">
-                      <Mail
-                        size={18}
-                        className="text-gray-400 transition group-focus-within:text-[#16522d]"
-                      />
-
-                      <input
-                        id="email"
-                        name="email"
-                        type="email"
-                        required
-                        autoComplete="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        placeholder="seller@bizbitenow.com"
-                        className="w-full bg-transparent px-4 py-2 text-[#16522d] outline-none placeholder:text-gray-400"
-                      />
-                    </div>
-                  </div>
-
-                  {/* ================= PIN ================= */}
-
-                  <div>
-                    <div className="mb-2 flex items-center justify-between">
-                      <label
-                        htmlFor="pin"
-                        className="text-sm font-semibold text-[#16522d]"
-                      >
-                        Security PIN
-                      </label>
-
-                      <button
-                        type="button"
-                        className="text-xs font-semibold text-[#16522d] transition hover:text-[#ffc700]"
-                      >
-                        Forgot PIN?
-                      </button>
-                    </div>
-
-                    <div className="group flex items-center rounded-xl border border-gray-200 bg-white px-4 transition-all duration-300 focus-within:border-[#16522d] focus-within:ring-4 focus-within:ring-[#16522d]/10">
-                      <Lock
-                        size={18}
-                        className="text-gray-400 transition group-focus-within:text-[#16522d]"
-                      />
-
-                      <input
-                        id="pin"
-                        name="pin"
-                        type={showPin ? "text" : "password"}
-                        required
-                        maxLength={4}
-                        inputMode="numeric"
-                        autoComplete="current-password"
-                        value={formData.pin}
-                        onChange={handleChange}
-                        placeholder="••••"
-                        className="w-full bg-transparent px-4 py-2 font-mono tracking-[0.35em] text-[#16522d] outline-none placeholder:text-gray-400"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => setShowPin(!showPin)}
-                        className="text-xs font-semibold text-[#16522d] transition hover:text-[#ffc700]"
-                      >
-                        {showPin ? "Hide" : "Show"}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* ================= OPTIONS ================= */}
-
-                  <div className="flex items-center justify-between">
-                    <label
-                      htmlFor="rememberMe"
-                      className="flex cursor-pointer items-center gap-2 text-sm text-gray-600"
-                    >
-                      <input
-                        id="rememberMe"
-                        name="rememberMe"
-                        type="checkbox"
-                        autoComplete="off"
-                        className="h-4 w-4 accent-[#16522d]"
-                      />
-                      Remember Me
-                    </label>
-
-                    <button
-                      type="button"
-                      className="text-sm font-semibold text-[#16522d] transition hover:text-[#ffc700]"
-                    >
-                      Need Help?
-                    </button>
-                  </div>
-
-                  {/* ================= LOGIN BUTTON ================= */}
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="group flex w-full items-center justify-center gap-2 rounded-lg bg-[#16522d] py-2.5 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:bg-[#1d6438] disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    {loading ? (
-                      <>
-                        <svg
-                          className="h-5 w-5 animate-spin"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                        >
-                          <circle
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                            className="opacity-30"
+                        <div className="group flex items-center rounded-xl border border-gray-200 bg-white px-4 transition-all duration-300 focus-within:border-[#16522d] focus-within:ring-4 focus-within:ring-[#16522d]/10">
+                          <Phone
+                            size={18}
+                            className="text-gray-400 transition group-focus-within:text-[#16522d]"
                           />
 
-                          <path
-                            d="M22 12A10 10 0 0 0 12 2"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                            strokeLinecap="round"
+                          <input
+                            id="phoneNumber"
+                            name="phoneNumber"
+                            type="tel"
+                            required
+                            autoComplete="tel"
+                            inputMode="numeric"
+                            maxLength={10}
+                            value={formData.phoneNumber}
+                            onChange={handleChange}
+                            placeholder="9876543210"
+                            className="w-full bg-transparent px-4 py-2 text-[#16522d] outline-none placeholder:text-gray-400"
                           />
-                        </svg>
+                        </div>
+                      </div>
 
-                        <span>Authenticating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Access Seller Dashboard</span>
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="group flex w-full items-center justify-center gap-2 rounded-lg bg-[#16522d] py-2.5 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:bg-[#1d6438] disabled:cursor-not-allowed disabled:opacity-70">
+                        {loading ? (
+                          <span>Sending OTP...</span>
+                        ) : (
+                          <>
+                            <span>Send OTP</span>
+                            <ArrowRight
+                              size={18}
+                              className="transition-transform duration-300 group-hover:translate-x-1"
+                            />
+                          </>
+                        )}
+                      </button>
+                    </motion.form>
+                  )}
 
-                        <ArrowRight
-                          size={18}
-                          className="transition-transform duration-300 group-hover:translate-x-1"
-                        />
-                      </>
-                    )}
-                  </button>
-                </form>
+                  {/* ================= STEP 2: OTP ================= */}
 
-                {/* ================= DIVIDER ================= */}
+                  {step === "otp" && (
+                    <motion.form
+                      key="otp"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.25 }}
+                      onSubmit={handleOtpSubmit}
+                      className="mt-4 space-y-4">
+                      <div>
+                        <label
+                          htmlFor="otp"
+                          className="mb-2 block w-full text-left text-sm font-semibold text-[#16522d]">
+                          One-Time Password
+                        </label>
+
+                        <div className="group flex items-center rounded-xl border border-gray-200 bg-white px-4 transition-all duration-300 focus-within:border-[#16522d] focus-within:ring-4 focus-within:ring-[#16522d]/10">
+                          <ShieldCheck
+                            size={18}
+                            className="text-gray-400 transition group-focus-within:text-[#16522d]"
+                          />
+
+                          <input
+                            id="otp"
+                            name="otp"
+                            type="text"
+                            required
+                            inputMode="numeric"
+                            maxLength={6}
+                            value={formData.otp}
+                            onChange={handleChange}
+                            placeholder="••••••"
+                            className="w-full bg-transparent px-4 py-2 font-mono tracking-[0.35em] text-[#16522d] outline-none placeholder:text-gray-400"
+                          />
+                        </div>
+
+                        <p className="mt-1.5 text-xs text-gray-400">
+                          Use <span className="font-semibold">1234</span> for
+                          testing.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between text-sm">
+                        <button
+                          type="button"
+                          onClick={goBack}
+                          className="flex items-center gap-1 font-semibold text-[#16522d] transition hover:text-[#ffc700]">
+                          <ArrowLeft size={14} />
+                          Change Number
+                        </button>
+
+                        <button
+                          type="button"
+                          className="font-semibold text-[#16522d] transition hover:text-[#ffc700]">
+                          Resend OTP
+                        </button>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="group flex w-full items-center justify-center gap-2 rounded-lg bg-[#16522d] py-2.5 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:bg-[#1d6438] disabled:cursor-not-allowed disabled:opacity-70">
+                        {loading ? (
+                          <span>Verifying...</span>
+                        ) : (
+                          <>
+                            <span>Verify OTP</span>
+                            <ArrowRight
+                              size={18}
+                              className="transition-transform duration-300 group-hover:translate-x-1"
+                            />
+                          </>
+                        )}
+                      </button>
+                    </motion.form>
+                  )}
+
+                  {/* ================= STEP 3: PIN ================= */}
+
+                  {step === "pin" && (
+                    <motion.form
+                      key="pin"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.25 }}
+                      onSubmit={handleSubmit}
+                      className="mt-4 space-y-4">
+                      <div>
+                        <div className="mb-2">
+                          <label
+                            htmlFor="pin"
+                            className="text-sm font-semibold text-[#16522d]">
+                            Security PIN
+                          </label>
+                        </div>
+
+                        <div className="group flex items-center rounded-xl border border-gray-200 bg-white px-4 transition-all duration-300 focus-within:border-[#16522d] focus-within:ring-4 focus-within:ring-[#16522d]/10">
+                          <Lock
+                            size={18}
+                            className="text-gray-400 transition group-focus-within:text-[#16522d]"
+                          />
+
+                          <input
+                            id="pin"
+                            name="pin"
+                            type={showPin ? "text" : "password"}
+                            required
+                            maxLength={4}
+                            inputMode="numeric"
+                            autoComplete="current-password"
+                            value={formData.pin}
+                            onChange={handleChange}
+                            placeholder="••••"
+                            className="w-full bg-transparent px-4 py-2 font-mono tracking-[0.35em] text-[#16522d] outline-none placeholder:text-gray-400"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => setShowPin(!showPin)}
+                            className="text-xs font-semibold text-[#16522d] transition hover:text-[#ffc700]">
+                            {showPin ? "Hide" : "Show"}
+                          </button>
+                        </div>
+
+                        <p className="mt-1.5 text-xs text-gray-400">
+                          Use <span className="font-semibold">1234</span> for
+                          testing.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between text-sm">
+                        <button
+                          type="button"
+                          onClick={goBack}
+                          className="flex items-center gap-1 font-semibold text-[#16522d] transition hover:text-[#ffc700]">
+                          <ArrowLeft size={14} />
+                          Back
+                        </button>
+
+                        <button
+                          type="button"
+                          className="font-semibold text-[#16522d] transition hover:text-[#ffc700]">
+                          Forgot PIN?
+                        </button>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="group flex w-full items-center justify-center gap-2 rounded-lg bg-[#16522d] py-2.5 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:bg-[#1d6438] disabled:cursor-not-allowed disabled:opacity-70">
+                        {loading ? (
+                          <>
+                            <svg
+                              className="h-5 w-5 animate-spin"
+                              viewBox="0 0 24 24"
+                              fill="none">
+                              <circle
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                className="opacity-30"
+                              />
+
+                              <path
+                                d="M22 12A10 10 0 0 0 12 2"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+
+                            <span>Authenticating...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Access Dashboard</span>
+
+                            <ArrowRight
+                              size={18}
+                              className="transition-transform duration-300 group-hover:translate-x-1"
+                            />
+                          </>
+                        )}
+                      </button>
+                    </motion.form>
+                  )}
+                </AnimatePresence>
+
+                {/* ================= CUSTOMER DIVIDER ================= */}
 
                 <div className="my-5 flex items-center gap-3">
                   <div className="h-px flex-1 bg-gray-200"></div>
 
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                    New Seller?
+                    Are You A Customer?
                   </span>
 
                   <div className="h-px flex-1 bg-gray-200"></div>
                 </div>
 
-                {/* ================= REGISTER BUTTON ================= */}
+                {/* ================= CUSTOMER REGISTER BUTTON ================= */}
 
                 <Link
-                  to="/seller/register"
-                  className="group flex w-full items-center justify-center rounded-lg border border-[#16522d] py-2.5 text-sm font-semibold text-[#16522d] transition-all duration-300 hover:bg-[#16522d] hover:text-white"
-                >
-                  Create Seller Account
+                  to="/customer/register"
+                  className="group flex w-full items-center justify-center rounded-lg border border-[#16522d] py-2.5 text-sm font-semibold text-[#16522d] transition-all duration-300 hover:bg-[#16522d] hover:text-white">
+                  Create New Customer Account
                   <ArrowRight
                     size={18}
                     className="ml-2 transition-transform duration-300 group-hover:translate-x-1"

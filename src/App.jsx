@@ -73,6 +73,7 @@ import TermsPolicy from "./pages/customer/TermsPolicy";
 import PolicyDetail from "./pages/customer/PolicyDetail";
 import PrivacySecurity from "./pages/customer/PrivacySecurity";
 import Favourites from "./pages/customer/Favourites";
+import CustomerRegister from "./pages/customer/Register";
 
 
 
@@ -127,6 +128,12 @@ export default function App() {
         <Route
           path="/seller/register-success"
           element={<RegisterSuccess />}
+        />
+
+
+        <Route
+          path="/customer/register"
+          element={<CustomerRegister />}
         />
 
 

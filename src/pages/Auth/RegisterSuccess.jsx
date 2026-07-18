@@ -1,4 +1,3 @@
-import React from "react";
 import { motion } from "framer-motion";
 import {
   CheckCircle2,
@@ -30,8 +29,7 @@ export default function RegisterSuccess() {
             duration: 0.45,
             ease: "easeInOut",
           }}
-          className="w-full max-w-6xl"
-        >
+          className="w-full max-w-6xl">
           <div className="grid w-full max-w-6xl max-h-[800px] overflow-hidden rounded-[28px] bg-white shadow-[0_30px_60px_rgba(22,82,45,.18)] lg:min-h-[620px] lg:grid-cols-2">
             {/* LEFT PANEL */}
 
@@ -168,8 +166,7 @@ export default function RegisterSuccess() {
 
               <button
                 onClick={() => navigate("/seller/dashboard")}
-                className="group mt-8 flex w-full items-center justify-center gap-3 rounded-2xl bg-[#16522d] py-3 text-base font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#1b6337]"
-              >
+                className="group mt-8 flex w-full items-center justify-center gap-3 rounded-2xl bg-[#16522d] py-3 text-base font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#1b6337]">
                 Go To Seller Dashboard
                 <ArrowRight
                   size={20}
@@ -179,8 +176,7 @@ export default function RegisterSuccess() {
 
               <button
                 onClick={() => navigate("/storefront")}
-                className="mt-4 w-full rounded-2xl border border-[#16522d] py-3 font-semibold text-[#16522d] transition-all duration-300 hover:bg-[#16522d] hover:text-white"
-              >
+                className="mt-4 w-full rounded-2xl border border-[#16522d] py-3 font-semibold text-[#16522d] transition-all duration-300 hover:bg-[#16522d] hover:text-white">
                 Visit Storefront
               </button>
 
