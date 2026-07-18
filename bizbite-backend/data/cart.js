@@ -62,58 +62,60 @@ const getCart = () => ({
 // ===============================
 // Add To Cart
 // ===============================
-
 const addToCart = ({
   productId,
   quantity = 1,
-  variant = null,
-  addons = [],
+  selectedVariant = null,
+  selectedAddons = [],
   note = "",
 }) => {
-  const product =
-    getProductById(productId);
+  const product = getProductById(productId);
 
-  if (!product)
-    return null;
+  if (!product) return null;
 
-  const existing =
-    cart.items.find(
-      (item) =>
-        item.productId ===
-          productId &&
-        JSON.stringify(
-          item.variant
-        ) ===
-          JSON.stringify(
-            variant
-          )
-    );
+  const variant =
+    selectedVariant ||
+    product.variants?.[0] ||
+    null;
 
-  const addonPrice =
-    addons.reduce(
-      (sum, addon) =>
-        sum + addon.price,
-      0
-    );
+  const addons = selectedAddons || [];
 
-  const variantPrice =
-    variant?.price || product.price;
+  const existing = cart.items.find(
+    (item) =>
+      item.productId === productId &&
+      item.selectedVariant?.id ===
+        variant?.id &&
+      JSON.stringify(
+        item.selectedAddons
+      ) === JSON.stringify(addons)
+  );
+
+  const basePrice =
+    variant?.price ?? product.price;
+
+  const addonPrice = addons.reduce(
+    (sum, addon) =>
+      sum + (addon.price || 0),
+    0
+  );
+
+  const unitPrice =
+    basePrice + addonPrice;
 
   if (existing) {
     existing.quantity += quantity;
 
+    existing.price = unitPrice;
+
     existing.total =
-      (variantPrice +
-        addonPrice) *
+      unitPrice *
       existing.quantity;
 
     return getCart();
   }
 
   cart.items.push({
-    id:
-      "CART_" +
-      Date.now(),
+    id: "CART_" + Date.now(),
 
     productId,
 
@@ -123,20 +125,18 @@ const addToCart = ({
 
     image: product.image,
 
-    price: product.price,
+    price: unitPrice,
 
-    variant,
+    selectedVariant: variant,
 
-    addons,
+    selectedAddons: addons,
 
     note,
 
     quantity,
 
     total:
-      (variantPrice +
-        addonPrice) *
-      quantity,
+      unitPrice * quantity,
   });
 
   return getCart();
@@ -164,21 +164,22 @@ const updateCartItem = (
 
   item.quantity = quantity;
 
-  const variantPrice =
-    item.variant?.price ||
-    item.price;
+const variantPrice =
+  item.selectedVariant?.price ??
+  item.price;
 
-  const addonPrice =
-    item.addons.reduce(
-      (sum, addon) =>
-        sum + addon.price,
-      0
-    );
+const addonPrice =
+  (item.selectedAddons || []).reduce(
+    (sum, addon) =>
+      sum + (addon.price || 0),
+    0
+  );
 
-  item.total =
-    (variantPrice +
-      addonPrice) *
-    quantity;
+item.total =
+  (variantPrice + addonPrice) *
+  quantity;
+
+
 
   return getCart();
 };

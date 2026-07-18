@@ -74,25 +74,28 @@ export const CartProvider = ({
     refreshCart();
   }, []);
 
-  const addItem = async (
-    product,
-    quantity = 1
-  ) => {
-    setLoading(true);
+const addItem = async (
+  product,
+  quantity = 1
+) => {
+  setLoading(true);
 
-    try {
-      await addToCart({
-        productId:
-          product.productId ||
-          product.id,
-        quantity,
-      });
+  try {
+    await addToCart({
+      productId: product.productId || product.id,
+      quantity: product.quantity || quantity,
+      price: product.price,
+      totalPrice: product.totalPrice,
+      selectedSize: product.selectedSize,
+      selectedVariant: product.selectedVariant,
+      selectedAddons: product.selectedAddons,
+    });
 
-      await refreshCart();
-    } finally {
-      setLoading(false);
-    }
-  };
+    await refreshCart();
+  } finally {
+    setLoading(false);
+  }
+};
 
   const updateItem = async (
     id,

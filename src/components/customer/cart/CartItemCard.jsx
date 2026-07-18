@@ -3,16 +3,19 @@ import { Trash2 } from "lucide-react";
 import QuantitySelector from "./QuantitySelector";
 
 const CartItemCard = ({ item, onIncrease, onDecrease, onRemove }) => {
-  const {
-    image,
-    name,
-    restaurant,
-    description,
-    price,
-    originalPrice,
-    quantity,
-    veg = true,
-  } = item;
+const {
+  image,
+  name,
+  restaurant,
+  description,
+  price,
+  originalPrice,
+  quantity,
+  total,
+  selectedVariant,
+  selectedAddons = [],
+  veg = true,
+} = item;
 
   return (
     <article className="flex gap-3 p-4 transition-all duration-200 hover:bg-slate-50">
@@ -108,19 +111,17 @@ const CartItemCard = ({ item, onIncrease, onDecrease, onRemove }) => {
           />
 
           <div className="text-right">
-            <div className="flex items-center justify-end gap-1.5">
-              <span className="text-lg font-bold text-slate-900">₹{price}</span>
+            <span className="text-lg font-bold text-slate-900">
+              ₹{total}
+            </span>
 
-              {originalPrice > price && (
-                <span className="text-[11px] text-slate-400 line-through">
-                  ₹{originalPrice}
-                </span>
-              )}
-            </div>
+            <p className="text-xs text-slate-500">
+              ₹{price} × {quantity}
+            </p>
 
             {originalPrice > price && (
               <p className="text-[10px] font-medium text-green-600">
-                Save ₹{originalPrice - price}
+                Save ₹{(originalPrice - price) * quantity}
               </p>
             )}
           </div>

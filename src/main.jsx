@@ -9,7 +9,7 @@ import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { CartProvider } from "./context/CartContext";
-
+import { FavouriteProvider } from "./context/FavouriteContext";
 import "./index.css";
 registerSW({
   immediate: true,
@@ -21,9 +21,11 @@ ReactDOM.createRoot(
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
+          <FavouriteProvider>
           <CartProvider>
             <App />
           </CartProvider>
+          </FavouriteProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>
