@@ -34,7 +34,7 @@ const AddUpiModal = ({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[100]"
+        className="fixed inset-0 z-[99999] flex items-center justify-center"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -64,33 +64,23 @@ const AddUpiModal = ({
           transition={{
             duration: 0.25,
           }}
-          className="
-            absolute
+className="
+relative
 
-            bottom-0
-            left-0
-            right-0
+w-full
+max-w-md
 
-            mx-auto
+mx-4
+lg:mx-0
 
-            w-full
-            max-w-md
+rounded-t-[24px]
+lg:rounded-[14px]
 
-            rounded-t-[24px]
-            lg:rounded-[14px]
+bg-white
+dark:bg-[#181A1B]
 
-            bg-white
-            dark:bg-[#181A1B]
-
-            p-6
-
-            lg:bottom-auto
-            lg:left-1/2
-            lg:top-1/2
-            lg:-translate-x-1/2
-            lg:-translate-y-1/2
-          "
-        >
+p-6
+">
           {/* Header */}
 
           <div className="flex items-center justify-between">

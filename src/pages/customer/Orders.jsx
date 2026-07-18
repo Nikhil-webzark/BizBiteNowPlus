@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect,useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MobileOrders from "../../components/customer/orders/MobileOrders";
 import { CheckCircle2, ShoppingBag } from "lucide-react";
@@ -6,20 +6,23 @@ import { motion } from "framer-motion";
 import SectionHeader from "../../components/customer/common/SectionHeader";
 import CompactHistoryCard from "../../components/customer/orders/CompactHistoryCard";
 import CurrentOrderCard from "../../components/customer/orders/OrderCard";
+import OrderSkeleton from "../../components/customer/skeleton/OrderSkeleton";
 import OrderHistoryCard from "../../components/customer/orders/OrderHistory";
-import OrderTimeline from "../../components/customer/orders/OrderTimeline";
+
 import { Link } from "react-router-dom";
 import { Bell } from "lucide-react";
-import { getCurrentOrders, getOrderHistory } from "../../api/customerApi";
+import  useOrderStore  from "../../api/stores/customerstore/orderStore";
 
 const Orders = () => {
   const navigate = useNavigate();
 
-  const [currentOrders, setCurrentOrders] = useState([]);
-
-  const [history, setHistory] = useState([]);
-
-  const [loading, setLoading] = useState(true);
+const {
+  currentOrders,
+  orderHistory,
+  loading,
+  error,
+  fetchOrders,
+} = useOrderStore();
 
   const [reordering, setReordering] = useState(null);
 
@@ -46,27 +49,22 @@ const Orders = () => {
   };
 
 useEffect(() => {
-  const customerId = "CUSTOMER_001";
+  fetchOrders();
 
-  const loadOrders = async () => {
-    const [currentRes, historyRes] =
-      await Promise.all([
-        getCurrentOrders(customerId),
-        getOrderHistory(customerId),
-      ]);
-
-    setCurrentOrders(currentRes.data.data || []);
-    setHistory(historyRes.data.data || []);
-  };
-
-  loadOrders();
-
-  const interval = setInterval(loadOrders, 30000);
+  const interval = setInterval(fetchOrders, 30000);
 
   return () => clearInterval(interval);
 }, []);
-
-
+console.log({
+  currentOrders,
+  orderHistory,
+  loading,
+  error,
+});
+if (loading.fetchOrders) {
+  return <OrderSkeleton />;
+// or your existing loading component
+}
   return (
       <>
         {/* Mobile */}
@@ -217,7 +215,7 @@ useEffect(() => {
         <section className="space-y-5">
           <h2 className="text-xl font-bold text-slate-900">Order History</h2>
 
-          {history.length === 0 ? (
+          {orderHistory.length === 0 ? (
             <div
               className="
                 rounded-[28px]
@@ -239,7 +237,7 @@ useEffect(() => {
             </div>
           ) : (
             <div className="space-y-5">
-              {history.map((order) => (
+              {orderHistory.map((order) => (
                 <div
                   key={order.id}
                   className="
