@@ -8,7 +8,7 @@ import CompactHistoryCard from "../../components/customer/orders/CompactHistoryC
 import CurrentOrderCard from "../../components/customer/orders/OrderCard";
 import OrderHistoryCard from "../../components/customer/orders/OrderHistory";
 import OrderTimeline from "../../components/customer/orders/OrderTimeline";
-
+import { Link } from "react-router-dom";
 import { Bell } from "lucide-react";
 import { getCurrentOrders, getOrderHistory } from "../../api/customerApi";
 
@@ -107,45 +107,43 @@ useEffect(() => {
     subtitle="Track your orders in real time"
   />
 
-  <button
-    className="
-      relative
+  <Link
+            to="/customer/notifications"
+            className="
+    relative
+    flex
+    h-11
+    w-11
+    items-center
+    justify-center
+    rounded-xl
+    bg-slate-200
+    transition
+    hover:bg-slate-300
+  "
+          >
+            <Bell size={22} className="text-slate-700" />
+
+            <span
+              className="
+      absolute
+      -right-1
+      -top-1
       flex
-      h-11
-      w-11
+      h-5
+      w-5
       items-center
       justify-center
-      rounded-[10px]
-      
-      transition
-      bg-slate-200
+      rounded-full
+      bg-red-500
+      text-[10px]
+      font-bold
+      text-white
     "
-  >
-    <Bell
-      size={22}
-      className="text-slate-700 "
-    />
-
-    <span
-      className="
-        absolute
-        -right-1
-        -top-1
-        flex
-        h-5
-        w-5
-        items-center
-        justify-center
-        rounded-full
-        bg-red-500
-        text-[10px]
-        font-bold
-        text-white
-      "
-    >
-      3
-    </span>
-  </button>
+            >
+              3
+            </span>
+          </Link>
 </div>
 
         {/* Current Order */}

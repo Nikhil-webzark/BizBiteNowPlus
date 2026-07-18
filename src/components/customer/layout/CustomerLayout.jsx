@@ -127,7 +127,7 @@ const CustomerLayout = () => {
 
          <div
   className={`w-full ${
-    location.pathname === "/customer" ? "lg:pt-22" : "lg:pt-0"
+    location.pathname === "/customer" ? "lg:pt-0" : "lg:pt-0"
   }`}
 >
             <Outlet />

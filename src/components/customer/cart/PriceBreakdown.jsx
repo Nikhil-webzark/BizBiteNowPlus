@@ -6,6 +6,7 @@ const formatPrice = (amount = 0) =>
   }).format(amount);
 
 const PriceRow = ({
+  
   label,
   value,
   positive = false,
@@ -45,6 +46,7 @@ const PriceRow = ({
 );
 
 const PriceBreakdown = ({
+  deliveryType = "delivery",
   subtotal = 0,
   discount = 0,
   deliveryFee = 0,
@@ -63,12 +65,12 @@ const PriceBreakdown = ({
         value={discount}
         positive
       />
-
+      {deliveryType === "delivery" && (
       <PriceRow
         label="Delivery Fee"
         value={deliveryFee}
       />
-
+      )}
       <PriceRow
         label="Taxes & Charges"
         value={taxes}

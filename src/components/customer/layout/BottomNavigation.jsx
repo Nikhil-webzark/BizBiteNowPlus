@@ -5,7 +5,7 @@ import {
   UtensilsCrossed,
   ReceiptText,
   Gift,
-  ShoppingBag,
+
   User,
   Heart,
 } from "lucide-react";
@@ -22,11 +22,7 @@ const navItems = [
   path: "/customer/menu",
   icon: UtensilsCrossed,
 },
-    {
-    label: "Cart",
-    path: "/customer/cart",
-    icon: ShoppingBag,
-  },
+
   {
     label: "Orders",
     icon: ReceiptText,

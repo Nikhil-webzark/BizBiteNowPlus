@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Phone, ShieldCheck, Lock, ArrowLeft, ArrowRight } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import logoHorizontal from "../../assets/bizbite_logo_horizontal.png";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../context/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Step order: phone -> otp -> pin

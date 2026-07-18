@@ -1,11 +1,21 @@
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 
-import SectionHeader from "../../components/customer/common/SectionHeader";
-import PrimaryButton from "../../components/customer/common/PrimaryButton";
 import { motion } from "framer-motion";
-import AddressCard from "../../components/customer/profile/AddressCard";
-import PaymentMethods from "../../components/customer/profile/PaymentMethods";
+import CheckoutHeader from "../../components/customer/checkout/CheckoutHeader";
+import AddressSelector from "../../components/customer/checkout/AddressSelector";
+import DeliveryTypeSelector from "../../components/customer/checkout/DeliveryTypeSelector";
+import ScheduleOrderCard from "../../components/customer/checkout/ScheduleOrderCard";
+import ScheduleOrderModal from "../../components/customer/checkout/ScheduleOrderModal";
+import PaymentMethodList from "../../components/customer/checkout/PaymentMethodList";
+import AddUpiModal from "../../components/customer/checkout/AddUpiModal";
+import OrderSummary from "../../components/customer/checkout/OrderSummary";
+import CheckoutFooter from "../../components/customer/checkout/CheckoutFooter";
+import couponsData from "../../data/customer/couponsData"; 
 
 import {
   addresses,
@@ -23,10 +33,12 @@ import {
 const Checkout = () => {
   const navigate = useNavigate();
 
-  const {
-    cartItems,
-    refreshCart,
-  } = useCart();
+const {
+  cartItems,
+  refreshCart,
+  selectedCoupon,
+  setSelectedCoupon,
+} = useCart();
 
   const [selectedAddress, setSelectedAddress] =
     useState(
@@ -35,28 +47,106 @@ const Checkout = () => {
       )
     );
 
-  const [selectedPayment, setSelectedPayment] =
-    useState(
-      paymentMethods.find(
-        (item) => item.default
-      )
-    );
+const [savedPaymentMethods, setSavedPaymentMethods] =
+  useState(paymentMethods);
 
-  const [selectedCoupon, setSelectedCoupon] =
-    useState(() => {
-      const saved =
-        localStorage.getItem(
-          "appliedCoupon"
-        );
+const [selectedPayment, setSelectedPayment] =
+  useState(
+    paymentMethods.find(
+      (item) => item.default
+    )
+  );
+const [couponCode, setCouponCode] =
+  useState(selectedCoupon?.code || "");
 
-      return saved
-        ? JSON.parse(saved)
-        : null;
-    });
+const [couponError, setCouponError] =
+  useState("");
+
+useEffect(() => {
+  setCouponCode(selectedCoupon?.code || "");
+}, [selectedCoupon]);
+
+
 
   const [placingOrder, setPlacingOrder] =
     useState(false);
+const [deliveryType, setDeliveryType] =
+  useState("delivery");
 
+const [scheduleModalOpen, setScheduleModalOpen] =
+  useState(false);
+
+const [addUpiModalOpen, setAddUpiModalOpen] =
+  useState(false);
+
+const [scheduledOrder, setScheduledOrder] =
+  useState({
+    scheduled: false,
+    date: "",
+    time: "",
+    datetime: null,
+  });
+  const handleScheduleConfirm = (
+  schedule
+) => {
+  setScheduledOrder({
+    scheduled: true,
+    ...schedule,
+  });
+};
+const handleCouponChange = (value) => {
+  setCouponCode(value);
+
+  if (couponError) {
+    setCouponError("");
+  }
+
+  if (selectedCoupon) {
+    setSelectedCoupon(null);
+  }
+};
+
+const handleApplyCoupon = (selectedCode) => {
+  const code = (selectedCode || couponCode)
+    .trim()
+    .toLowerCase();
+
+  const coupon = couponsData.find(
+    (c) => c.code.toLowerCase() === code
+  );
+
+  if (!coupon) {
+    setCouponError(
+      "The coupon is invalid. Please enter a valid coupon."
+    );
+    setSelectedCoupon(null);
+    return;
+  }
+
+  setCouponError("");
+  setCouponCode(coupon.code);
+  setSelectedCoupon(coupon);
+};
+
+const handleAddUpi = (payment) => {
+  const newMethod = {
+    id: Date.now(),
+    type: "upi",
+    title: "UPI",
+    name: "UPI",
+    description: payment.upiId,
+    default: payment.default,
+  };
+
+  setSavedPaymentMethods((prev) => [
+    newMethod,
+    ...prev,
+  ]);
+
+  setSelectedPayment(newMethod);
+
+  setAddUpiModalOpen(false);
+};
   const orderSummary = useMemo(() => {
     const subtotal =
       cartItems.reduce(
@@ -65,10 +155,12 @@ const Checkout = () => {
         0
       );
 
-    const delivery =
-      subtotal >= 499
-        ? 0
-        : 40;
+const delivery =
+  deliveryType === "pickup"
+    ? 0
+    : subtotal >= 499
+      ? 0
+      : 40;
 
     const tax = Math.round(
       subtotal * 0.05
@@ -86,22 +178,51 @@ const Checkout = () => {
             )
         : 0;
 
-    return {
-      subtotal,
-      delivery,
-      tax,
-      discount,
-      total:
-        subtotal +
-        delivery +
-        tax -
-        discount,
-    };
+const freeDeliveryThreshold = 499;
+
+const amountRemaining = Math.max(
+  freeDeliveryThreshold - subtotal,
+  0
+);
+
+const progress = Math.min(
+  (subtotal / freeDeliveryThreshold) * 100,
+  100
+);
+
+const freeDeliveryUnlocked =
+  subtotal >= freeDeliveryThreshold;
+
+return {
+  subtotal,
+  discount,
+  deliveryFee: delivery,
+  taxes: tax,
+  total:
+    subtotal +
+    delivery +
+    tax -
+    discount,
+
+  freeDeliveryThreshold,
+  amountRemaining,
+  progress,
+  freeDeliveryUnlocked,
+};
   }, [
     cartItems,
     selectedCoupon,
+    deliveryType, 
   ]);
-
+const coupon = {
+  code: couponCode,
+  applied: !!selectedCoupon,
+  discount: orderSummary.discount,
+  error: couponError,
+  offers: couponsData.filter(
+    (coupon) => !coupon.expired
+  ),
+};
   const placeOrder = async () => {
     if (!cartItems.length) {
       alert("Your cart is empty.");
@@ -125,17 +246,19 @@ const Checkout = () => {
     try {
       setPlacingOrder(true);
 
-      await placeOrderApi({
-        payment:
-          selectedPayment,
-        address:
-          selectedAddress,
-        notes: "",
-      });
+await placeOrderApi({
+  payment: selectedPayment,
+  address: selectedAddress,
 
-      localStorage.removeItem(
-        "appliedCoupon"
-      );
+  deliveryType,
+
+  scheduledOrder,
+
+  coupon: selectedCoupon,
+
+  notes: "",
+});
+
 
       setSelectedCoupon(null);
 
@@ -156,251 +279,172 @@ const Checkout = () => {
       setPlacingOrder(false);
     }
   };
-  return (
-  <motion.div
-    initial={{
-      opacity: 0,
-      y: 15,
-    }}
-    animate={{
-      opacity: 1,
-      y: 0,
-    }}
-    transition={{
-      duration: 0.4,
-      ease: [0.22, 1, 0.36, 1],
-    }}
-    className="space-y-6"
-  >
-    <div className="space-y-8 lg:pl-10 pb-32">
+useEffect(() => {
+  if (deliveryType !== "pickup") {
+    return;
+  }
 
-      <SectionHeader
-        title="Checkout"
-        subtitle="Complete your order securely"
+  const upiMethod =
+    savedPaymentMethods.find(
+      (method) => method.type === "upi"
+    );
+
+  if (
+    upiMethod &&
+    selectedPayment?.type !== "upi"
+  ) {
+    setSelectedPayment(upiMethod);
+  }
+}, [
+  deliveryType,
+  savedPaymentMethods,
+  selectedPayment,
+]);
+return (
+  <>
+    <motion.div
+      initial={{
+        opacity: 0,
+        y: 15,
+      }}
+      animate={{
+        opacity: 1,
+        y: 0,
+      }}
+      transition={{
+        duration: 0.4,
+        ease: [0.22, 1, 0.36, 1],
+      }}
+  className="
+    w-full
+    max-w-none
+
+    px-3
+    py-4
+
+    sm:px-4
+    lg:px-8
+
+    mb-20
+  "
+    >
+      <CheckoutHeader
+        itemCount={cartItems.length}
+        onBack={() => navigate(-1)}
       />
 
-      {/* Address */}
+<div
+  className="
+    mt-4
 
-      <section className="space-y-4">
+    grid
+    grid-cols-1
 
-        <AddressCard
-          addresses={addresses}
-          onSelect={setSelectedAddress}
-          onAdd={() =>
-            console.log(
-              "Add Address"
-            )
-          }
-          onEdit={(address) =>
-            console.log(
-              "Edit",
-              address
-            )
-          }
-          onDelete={(address) =>
-            console.log(
-              "Delete",
-              address
-            )
-          }
-        />
+    gap-4
 
-      </section>
+    xl:grid-cols-[minmax(0,1.7fr)_minmax(340px,1fr)]
+    xl:gap-6
+  "
+>
+        {/* LEFT */}
 
-      {/* Payment */}
+        <div className="space-y-6">
 
-      <section className="space-y-4">
-
-        <PaymentMethods
-          methods={paymentMethods}
-          onSelect={setSelectedPayment}
-          onAdd={() =>
-            console.log(
-              "Add Payment"
-            )
-          }
-          onEdit={(method) =>
-            console.log(
-              "Edit",
-              method
-            )
-          }
-          onDelete={(method) =>
-            console.log(
-              "Delete",
-              method
-            )
-          }
-        />
-
-      </section>
-
-      {/* Summary */}
-
-      <section
-        className="
-          rounded-[28px]
-          border
-          border-slate-200
-          bg-white
-          p-6
-          shadow-sm
-        "
-      >
-
-        <h2 className="text-xl font-bold text-slate-900">
-          Order Summary
-        </h2>
-
-        <div className="mt-5 space-y-4">
-
-          <SummaryRow
-            label="Items"
-            value={`${cartItems.length}`}
+          <AddressSelector
+            addresses={addresses}
+            selectedAddress={selectedAddress}
+            onSelect={setSelectedAddress}
+            onManage={() => navigate("/customer/profile")}
           />
 
-          <SummaryRow
-            label="Subtotal"
-            value={`₹${orderSummary.subtotal}`}
-          />
-
-          <SummaryRow
-            label="Delivery Fee"
-            value={
-              orderSummary.delivery === 0
-                ? "Free"
-                : `₹${orderSummary.delivery}`
+          <DeliveryTypeSelector
+            deliveryType={deliveryType}
+            scheduled={scheduledOrder.scheduled}
+            scheduledLabel={
+              scheduledOrder.scheduled
+                ? `${scheduledOrder.date} • ${scheduledOrder.time}`
+                : ""
+            }
+            onDeliveryTypeChange={setDeliveryType}
+            onScheduleClick={() =>
+              setScheduleModalOpen(true)
             }
           />
 
-          <SummaryRow
-            label="Taxes"
-            value={`₹${orderSummary.tax}`}
+          <ScheduleOrderCard
+            scheduled={scheduledOrder.scheduled}
+            scheduledDate={scheduledOrder.date}
+            scheduledTime={scheduledOrder.time}
+            onClick={() =>
+              setScheduleModalOpen(true)
+            }
           />
 
-          {orderSummary.discount > 0 && (
-            <SummaryRow
-              label="Coupon Discount"
-              value={`-₹${orderSummary.discount}`}
-              green
-            />
-          )}
-
-          <div
-            className="
-              flex
-              justify-between
-              border-t
-              pt-4
-            "
-          >
-            <span className="text-lg font-bold">
-              Total
-            </span>
-
-            <span
-              className="
-                text-2xl
-                font-bold
-              "
-              style={{
-                color:
-                  "var(--primary)",
-              }}
-            >
-              ₹{orderSummary.total}
-            </span>
-
-          </div>
+<PaymentMethodList
+  paymentMethods={savedPaymentMethods}
+  selectedPayment={selectedPayment}
+  deliveryType={deliveryType}
+  onSelect={setSelectedPayment}
+  onAddUpi={() =>
+    setAddUpiModalOpen(true)
+  }
+/>
 
         </div>
 
-        <div className="mt-6 space-y-3">
+        {/* RIGHT */}
 
-          <InfoBox
-            title="Payment Method"
-            value={
-              selectedPayment?.title ||
-              "Select Payment"
-            }
-          />
+        <div
+          className="
+            h-fit
 
-          <InfoBox
-            title="Delivery Address"
-            value={
-              selectedAddress?.address ||
-              "Select Address"
-            }
-          />
-
-        </div>
-
-        <PrimaryButton
-          className="mt-6 w-full"
-          disabled={
-            placingOrder ||
-            cartItems.length === 0
-          }
-          onClick={placeOrder}
+            xl:sticky
+            xl:top-24
+          "
         >
-          {placingOrder
-            ? "Placing Order..."
-            : "Place Order"}
-        </PrimaryButton>
 
-      </section>
+<OrderSummary
+  summary={orderSummary}
+  deliveryType={deliveryType}
+  coupon={coupon}
+  onCouponChange={handleCouponChange}
+  onApplyCoupon={handleApplyCoupon}
+/>
 
-    </div>
-  </motion.div>
+          <CheckoutFooter
+            total={orderSummary.total}
+            loading={placingOrder}
+            disabled={
+              !selectedAddress ||
+              !selectedPayment ||
+              cartItems.length === 0
+            }
+            onPlaceOrder={placeOrder}
+          />
+        </div>
+
+      </div>
+    </motion.div>
+
+    <ScheduleOrderModal
+      open={scheduleModalOpen}
+      onClose={() =>
+        setScheduleModalOpen(false)
+      }
+      onConfirm={
+        handleScheduleConfirm
+      }
+    />
+
+    <AddUpiModal
+      open={addUpiModalOpen}
+      onClose={() =>
+        setAddUpiModalOpen(false)
+      }
+      onSave={handleAddUpi}
+    />
+  </>
 );
 }
-const SummaryRow = ({
-  label,
-  value,
-  green,
-}) => (
-  <div
-    className="
-      flex
-      justify-between
-      text-slate-600
-    "
-  >
-    <span>{label}</span>
-
-    <span
-      className={
-        green
-          ? "font-semibold text-green-600"
-          : "font-semibold text-slate-900"
-      }
-    >
-      {value}
-    </span>
-  </div>
-);
-
-const InfoBox = ({
-  title,
-  value,
-}) => (
-  <div>
-    <p className="text-sm text-slate-500">
-      {title}
-    </p>
-
-    <div
-      className="
-        mt-1
-        rounded-2xl
-        bg-slate-50
-        p-4
-        font-semibold
-      "
-    >
-      {value}
-    </div>
-  </div>
-);
 
 export default Checkout;

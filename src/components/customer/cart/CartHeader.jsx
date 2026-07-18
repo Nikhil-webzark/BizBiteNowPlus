@@ -14,30 +14,10 @@ const CartHeader = ({
     <header className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
       {/* Left */}
       <div className="flex items-start gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="
-            mt-1
-            flex
-            h-10
-            w-10
-            items-center
-            justify-center
-            rounded-full
-            border
-            border-slate-200
-            bg-white
-            transition
-            hover:border-green-600
-            hover:text-green-600
-          "
-        >
-          <ChevronLeft size={20} />
-        </button>
+
 
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">
             Your Cart
           </h1>
 
@@ -54,6 +34,7 @@ const CartHeader = ({
         className="
           group
           flex
+          mb-5
           w-full
           items-center
           justify-between
@@ -82,15 +63,15 @@ const CartHeader = ({
           </div>
 
           <div className="text-left">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">
               Deliver To
             </p>
 
-            <h3 className="text-sm font-semibold text-slate-900">
+            <h3 className="text-xs font-semibold text-slate-900">
               {address.label || "Home"}
             </h3>
 
-            <p className="max-w-[180px] truncate text-xs text-slate-500">
+            <p className="max-w-[180px] truncate text-[10px] text-slate-500">
               {address.address ||
                 "Select delivery address"}
             </p>

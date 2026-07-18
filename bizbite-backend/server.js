@@ -8,6 +8,7 @@ app.use(express.json());
 const allowedOrigins = [
   "https://biz-bite-now-plus.vercel.app",
   "http://localhost:5173",
+  "http://localhost:4173",
   "http://192.168.1.16:5173",
 ];
 

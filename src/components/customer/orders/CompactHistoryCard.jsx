@@ -19,7 +19,7 @@ const CompactHistoryCard = ({
   return (
     <div
       className="
-        rounded-2xl
+        w-full
         border
         border-slate-200
         bg-white
@@ -59,7 +59,7 @@ const CompactHistoryCard = ({
 
         <span
           className={`
-            rounded-full
+            rounded-[10px]
             px-3
             py-1
             text-[11px]

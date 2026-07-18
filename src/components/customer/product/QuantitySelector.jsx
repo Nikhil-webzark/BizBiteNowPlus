@@ -1,153 +1,112 @@
-import { motion } from "framer-motion";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, Hash } from "lucide-react";
 
-const QuantitySelector = ({
-  quantity = 1,
-  min = 1,
-  max = 99,
-  size = "default",
-  onChange,
-}) => {
-  const decrease = () => {
-    if (quantity <= min) return;
-    onChange?.(quantity - 1);
+export default function QuantitySelector({
+  quantity,
+  setQuantity,
+}) {
+  const decreaseQuantity = () => {
+    if (quantity > 1) {
+      setQuantity(quantity - 1);
+    }
   };
 
-  const increase = () => {
-    if (quantity >= max) return;
-    onChange?.(quantity + 1);
+  const increaseQuantity = () => {
+    setQuantity(quantity + 1);
   };
-
-  const sizes = {
-    small: {
-      wrapper: "gap-2",
-      button: "h-9 w-9",
-      text: "text-base w-6",
-    },
-
-    default: {
-      wrapper: "gap-4",
-      button: "h-11 w-11",
-      text: "text-lg w-8",
-    },
-
-    large: {
-      wrapper: "gap-5",
-      button: "h-14 w-14",
-      text: "text-xl w-10",
-    },
-  };
-
-  const current = sizes[size] || sizes.default;
 
   return (
-    <div
-      className={`
-        inline-flex
-        items-center
+    <div className="rounded-lg md:rounded-xl border border-gray-200 bg-white p-3 md:p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-10 w-10 md:h-12 md:w-12 shrink-0 items-center justify-center rounded-xl md:rounded-2xl bg-[#16522d]/10">
+            <Hash
+              size={18}
+              className="text-[#16522d] md:h-[22px] md:w-[22px]"
+            />
+          </div>
 
-        rounded-2xl
+          <div className="min-w-0">
+            <h3 className="text-base text-lg font-bold text-slate-900">
+              Quantity
+            </h3>
 
-        border
-        border-slate-200
+            <p className="mt-0.5 text-xs md:mt-1 md:text-xs text-gray-500 truncate">
+              Select the number of servings
+            </p>
+          </div>
+        </div>
 
-        bg-white
 
-        p-2
+      </div>
 
-        shadow-sm
+      <div className="mt-4 md:mt-6 flex justify-center">
+        <div className="flex items-center rounded-xl md:rounded-2xl border border-gray-200 bg-gray-50 p-1.5 md:p-2">
+          <button
+            type="button"
+            onClick={decreaseQuantity}
+            disabled={quantity <= 1}
+            className="
+              flex
+              h-9
+              w-9
+              md:h-10
+              md:w-10
+              items-center
+              justify-center
+              rounded-lg
+              md:rounded-xl
+              border
+              border-gray-200
+              bg-white
+              transition-all
+              duration-200
+              hover:border-[#16522d]
+              hover:bg-[#16522d]
+              hover:text-white
+              disabled:cursor-not-allowed
+              disabled:opacity-40
+              disabled:hover:border-gray-200
+              disabled:hover:bg-white
+              disabled:hover:text-gray-500
+            "
+          >
+            <Minus size={16} className="md:h-[18px] md:w-[18px]" />
+          </button>
 
-        ${current.wrapper}
-      `}
-    >
-      {/* Minus */}
+          <div className="flex min-w-[64px] md:min-w-[90px] flex-col items-center justify-center px-2 md:px-4">
+            <span className="text-lg md:text-xl font-bold text-[#16522d]">
+              {quantity}
+            </span>
 
-      <motion.button
-        whileTap={{ scale: 0.9 }}
-        whileHover={{ scale: 1.05 }}
-        disabled={quantity <= min}
-        onClick={decrease}
-        className={`
-          flex
-          items-center
-          justify-center
+            <span className="text-[10px] md:text-xs text-gray-500">
+              Qty
+            </span>
+          </div>
 
-          rounded-xl
-
-          transition-all
-
-          ${
-            quantity <= min
-              ? "cursor-not-allowed bg-slate-100 text-slate-300"
-              : "bg-slate-100 hover:bg-slate-200"
-          }
-
-          ${current.button}
-        `}
-      >
-        <Minus size={18} />
-      </motion.button>
-
-      {/* Quantity */}
-
-      <motion.span
-        key={quantity}
-        initial={{
-          scale: 0.8,
-          opacity: 0,
-        }}
-        animate={{
-          scale: 1,
-          opacity: 1,
-        }}
-        transition={{
-          duration: 0.18,
-        }}
-        className={`
-          text-center
-          font-bold
-          text-slate-900
-
-          ${current.text}
-        `}
-      >
-        {quantity}
-      </motion.span>
-
-      {/* Plus */}
-
-      <motion.button
-        whileTap={{ scale: 0.9 }}
-        whileHover={{ scale: 1.05 }}
-        disabled={quantity >= max}
-        onClick={increase}
-        className={`
-          flex
-          items-center
-          justify-center
-
-          rounded-xl
-
-          text-white
-
-          transition-all
-
-          ${
-            quantity >= max
-              ? "cursor-not-allowed opacity-50"
-              : ""
-          }
-
-          ${current.button}
-        `}
-        style={{
-          background: "var(--primary)",
-        }}
-      >
-        <Plus size={18} />
-      </motion.button>
+          <button
+            type="button"
+            onClick={increaseQuantity}
+            className="
+              flex
+              h-9
+              w-9
+              md:h-10
+              md:w-10
+              items-center
+              justify-center
+              rounded-lg
+              md:rounded-xl
+              bg-[#16522d]
+              text-white
+              transition-all
+              duration-200
+              hover:bg-[#124325]
+            "
+          >
+            <Plus size={16} className="md:h-[18px] md:w-[18px]" />
+          </button>
+        </div>
+      </div>
     </div>
   );
-};
-
-export default QuantitySelector;
+}

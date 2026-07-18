@@ -19,6 +19,10 @@ const MobileCurrentCard = ({
         overflow-hidden
         rounded-[14px]
         border
+         shrink-0
+
+        w-full
+        max-w-full
         border-slate-200
         bg-white
         shadow-sm

@@ -6,7 +6,7 @@ import { useCart } from "../../context/CartContext";
 
 import HeroBanner from "../../components/customer/hero/HeroBanner";
 
-
+import { Link } from "react-router-dom";
 import MenuGrid from "../../components/customer/menu/MenuGrid";
 import ProductCard from "../../components/customer/menu/ProductCard";
 
@@ -23,12 +23,12 @@ import HorizontalSection from "../../components/customer/home/HorizontalSection"
 import {
   getStore,
   getMenu,
-  getFavorites,
-  toggleFavorite,
   getTodaySpecialProducts,
   getComboMealProducts,
   getRecentlyOrderedProducts,
 } from "../../api/customerApi";
+
+import { useFavourite } from "../../context/FavouriteContext";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -38,12 +38,16 @@ const Home = () => {
   const [menuData, setMenuData] = useState([]);
 const [todaySpecialProducts, setTodaySpecialProducts] = useState([]);
 const [comboMealProducts, setComboMealProducts] = useState([]);
-  const [favoriteProducts, setFavoriteProducts] = useState([]);
+  
 
   const [recentProducts, setRecentProducts] = useState([]);
 
   const [offerProducts, setOfferProducts] = useState([]);
   const { cartItems, addItem, updateItem, removeItem } = useCart();
+  const {
+  favouriteProducts,
+  toggleFavourite,
+} = useFavourite();
   const increaseQuantity = (product) => {
     const item = cartItems.find(
       (cartItem) => cartItem.productId === product.id,
@@ -78,14 +82,12 @@ const [comboMealProducts, setComboMealProducts] = useState([]);
 const [
   storeRes,
   menuRes,
-  favRes,
   todayRes,
   comboRes,
   recentRes,
 ] = await Promise.all([
   getStore(),
   getMenu(),
-  getFavorites("CUSTOMER_001"),
   getTodaySpecialProducts(),
   getComboMealProducts(),
   getRecentlyOrderedProducts(),
@@ -102,13 +104,6 @@ const menu = menuRes.data?.data || [];
 
       setMenuData(menu);
 
-      const favourites = favRes.data.data || [];
-
-      setFavoriteProducts(
-        menu.filter((item) =>
-          favourites.some((fav) => fav.productId === item.id),
-        ),
-      );
 
       setOfferProducts(menu.filter((item) => item.originalPrice > item.price));
     } catch (err) {
@@ -123,10 +118,10 @@ const menu = menuRes.data?.data || [];
     loadData();
   }, []);
 
-  const favouriteCount = useMemo(
-    () => favoriteProducts.length,
-    [favoriteProducts],
-  );
+ const favouriteCount = useMemo(
+  () => favouriteProducts.length,
+  [favouriteProducts]
+);
 
   const recentCount = useMemo(() => recentProducts.length, [recentProducts]);
 
@@ -223,7 +218,7 @@ const menu = menuRes.data?.data || [];
                 onViewAll={() => navigate("/customer/orders")}
                 products={recentProducts}
                 cartItems={cartItems}
-                favouriteProducts={favoriteProducts}
+                favouriteProducts={favouriteProducts}
                 onProductClick={(product) =>
                   navigate(`/customer/product/${product.id}`)
                 }
@@ -251,7 +246,7 @@ const menu = menuRes.data?.data || [];
               onViewAll={() => navigate("/customer/menu")}
               products={offerProducts}
               cartItems={cartItems}
-              favouriteProducts={favoriteProducts}
+              favouriteProducts={favouriteProducts}
               onProductClick={(product) =>
                 navigate(`/customer/product/${product.id}`)
               }
@@ -272,7 +267,7 @@ const menu = menuRes.data?.data || [];
       onViewAll={() => navigate("/customer/menu")}
       products={todaySpecialProducts}
       cartItems={cartItems}
-      favouriteProducts={favoriteProducts}
+      favouriteProducts={favouriteProducts}
       onProductClick={(product) =>
         navigate(`/customer/product/${product.id}`)
       }
@@ -294,7 +289,7 @@ const menu = menuRes.data?.data || [];
       onViewAll={() => navigate("/customer/menu")}
       products={comboMealProducts}
       cartItems={cartItems}
-      favouriteProducts={favoriteProducts}
+      favouriteProducts={favouriteProducts}
       onProductClick={(product) =>
         navigate(`/customer/product/${product.id}`)
       }
@@ -314,9 +309,9 @@ const menu = menuRes.data?.data || [];
               subtitle="Save more today."
               buttonText="View All"
               onViewAll={() => navigate("/customer/menu")}
-              products={favoriteProducts}
+              products={favouriteProducts}
               cartItems={cartItems}
-              favouriteProducts={favoriteProducts}
+              favouriteProducts={favouriteProducts}
               onProductClick={(product) =>
                 navigate(`/customer/product/${product.id}`)
               }
@@ -408,13 +403,13 @@ const menu = menuRes.data?.data || [];
                       cartItems.find((item) => item.productId === product.id)
                         ?.quantity || 0
                     }
-                    isFavourite={favoriteProducts.some(
+                    isFavourite={favouriteProducts.some(
                       (item) => item.id === product.id,
                     )}
                     onAdd={() => addItem(product)}
                     onIncrease={() => increaseQuantity(product)}
                     onDecrease={() => decreaseQuantity(product)}
-                    onFavourite={() => handleFavourite(product.id)}
+                    onFavourite={() => toggleFavourite(product)}
                     onClick={() => navigate(`/customer/product/${product.id}`)}
                   />
                 ))}
@@ -452,7 +447,7 @@ const menu = menuRes.data?.data || [];
               </div>
 
               <MenuGrid>
-                {favoriteProducts.map((product) => (
+                {favouriteProducts.map((product) => (
                   <ProductCard
                     key={product.id}
                     product={product}
@@ -460,13 +455,13 @@ const menu = menuRes.data?.data || [];
                       cartItems.find((item) => item.productId === product.id)
                         ?.quantity || 0
                     }
-                    isFavourite={favoriteProducts.some(
+                    isFavourite={favouriteProducts.some(
                       (item) => item.id === product.id,
                     )}
                     onAdd={() => addItem(product)}
                     onIncrease={() => increaseQuantity(product)}
                     onDecrease={() => decreaseQuantity(product)}
-                    onFavourite={() => handleFavourite(product.id)}
+                    onFavourite={() => toggleFavourite(product)}
                     onClick={() => navigate(`/customer/product/${product.id}`)}
                   />
                 ))}
@@ -512,13 +507,13 @@ const menu = menuRes.data?.data || [];
                       cartItems.find((item) => item.productId === product.id)
                         ?.quantity || 0
                     }
-                    isFavourite={favoriteProducts.some(
+                    isFavourite={favouriteProducts.some(
                       (item) => item.id === product.id,
                     )}
                     onAdd={() => addItem(product)}
                     onIncrease={() => increaseQuantity(product)}
                     onDecrease={() => decreaseQuantity(product)}
-                    onFavourite={() => handleFavourite(product.id)}
+                    onFavourite={() => toggleFavourite(product)}
                     onClick={() => navigate(`/customer/product/${product.id}`)}
                   />
                 ))}

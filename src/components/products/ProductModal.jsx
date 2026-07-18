@@ -1,4 +1,10 @@
-import { X, UploadCloud } from "lucide-react";
+import {
+  X,
+  UploadCloud,
+  Plus,
+  Trash2,
+  Settings2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function ProductModal({
@@ -9,21 +15,27 @@ export default function ProductModal({
   onSave,
   products = [],
 }) {
-  const emptyForm = {
-    id: Date.now(),
-    sku: "",
-    name: "",
-    description: "",
-    category: "",
-    price: "",
-    stock: "",
-    image: "",
-    available: true,
-    featured: false,
-    combo: false,
-    delivery: true,
-  };
+const emptyForm = {
+  id: Date.now(),
+  sku: "",
+  name: "",
+  description: "",
+  category: "",
+  price: "",
+  stock: "",
+  image: "",
 
+  available: true,
+  featured: false,
+  combo: false,
+  delivery: true,
+
+  variants: [],
+
+  addons: [],
+
+  ingredients: [],
+};
   const [formData, setFormData] = useState(emptyForm);
   const generateSKU = (category) => {
     const categoryMap = {
@@ -119,7 +131,76 @@ export default function ProductModal({
 
     reader.readAsDataURL(file);
   };
+const addVariant = () => {
+  setFormData((prev) => ({
+    ...prev,
+    variants: [
+      ...prev.variants,
+      {
+        id: Date.now(),
+        name: "",
+        price: 0,
+      },
+    ],
+  }));
+};
 
+const updateVariant = (id, field, value) => {
+  setFormData((prev) => ({
+    ...prev,
+    variants: prev.variants.map((variant) =>
+      variant.id === id
+        ? { ...variant, [field]: value }
+        : variant
+    ),
+  }));
+};
+
+const removeVariant = (id) => {
+  setFormData((prev) => ({
+    ...prev,
+    variants: prev.variants.filter(
+      (variant) => variant.id !== id
+    ),
+  }));
+};
+const addAddon = () => {
+  setFormData((prev) => ({
+    ...prev,
+    addons: [
+      ...prev.addons,
+      {
+        id: Date.now(),
+        name: "",
+        description: "",
+        price: "",
+      },
+    ],
+  }));
+};
+
+const updateAddon = (addonId, field, value) => {
+  setFormData((prev) => ({
+    ...prev,
+    addons: prev.addons.map((addon) =>
+      addon.id === addonId
+        ? {
+            ...addon,
+            [field]: value,
+          }
+        : addon
+    ),
+  }));
+};
+
+const removeAddon = (addonId) => {
+  setFormData((prev) => ({
+    ...prev,
+    addons: prev.addons.filter(
+      (addon) => addon.id !== addonId
+    ),
+  }));
+};
   const handleReset = () => {
     if (mode === "edit" && product) {
       setFormData({
@@ -143,23 +224,49 @@ export default function ProductModal({
       });
     }
   };
+const handleSubmit = (e) => {
+  e.preventDefault();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  if (!formData.name || !formData.category || !formData.price) {
+    alert("Please fill all required fields.");
+    return;
+  }
 
-    if (!formData.name || !formData.category || !formData.price) {
-      alert("Please fill all required fields.");
-      return;
-    }
+  const cleanedVariants = formData.variants
+    .filter((group) => group.name.trim())
+    .map((group) => ({
+      ...group,
+      options: group.options.filter(
+        (option) => option.name.trim()
+      ),
+    }))
+    .filter((group) => group.options.length);
 
-    const productData = {
-      ...formData,
-      sku: mode === "edit" ? formData.sku : generateSKU(formData.category),
-    };
+  const cleanedAddons = formData.addons.filter(
+    (addon) =>
+      addon.name.trim() &&
+      addon.price !== "" &&
+      addon.price !== null
+  );
 
-    onSave(productData);
-    onClose();
+  const productData = {
+    ...formData,
+
+    sku:
+      mode === "edit"
+        ? formData.sku
+        : generateSKU(formData.category),
+
+    price: Number(formData.price),
+
+    variants: cleanedVariants,
+
+    addons: cleanedAddons,
   };
+
+  onSave(productData);
+  onClose();
+};
 
   return (
     <>
@@ -374,7 +481,202 @@ export default function ProductModal({
                 </div>
               </div>
             </div>
-            {/* RIGHT COLUMN */}
+
+            {/* ===================== VARIANTS ===================== */}
+<div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+  <div className="mb-6 flex items-center justify-between">
+    <div className="flex items-center gap-3">
+      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#16522D]/10">
+        <Settings2
+          size={20}
+          className="text-[#16522D]"
+        />
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold text-slate-900">
+          Product Sizes
+        </h3>
+
+        <p className="text-sm text-slate-500">
+          Add available sizes for this product.
+        </p>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      onClick={addVariant}
+      className="rounded-xl bg-[#16522D] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#114125]"
+    >
+      + Add Size
+    </button>
+  </div>
+
+  <div className="space-y-4">
+    {formData.variants.length === 0 && (
+      <div className="rounded-xl border border-dashed border-slate-300 py-10 text-center text-slate-400">
+        No sizes added yet.
+      </div>
+    )}
+
+    {formData.variants.map((variant) => (
+      <div
+        key={variant.id}
+        className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-[1fr_150px_50px]"
+      >
+        <input
+          type="text"
+          placeholder="Size (Small, Medium, Large)"
+          value={variant.name}
+          onChange={(e) =>
+            updateVariant(
+              variant.id,
+              "name",
+              e.target.value
+            )
+          }
+          className="rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-[#16522D]"
+        />
+
+        <div className="relative">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2">
+            ₹
+          </span>
+
+          <input
+            type="number"
+            placeholder="Extra Price"
+            value={variant.price}
+            onChange={(e) =>
+              updateVariant(
+                variant.id,
+                "price",
+                Number(e.target.value)
+              )
+            }
+            className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4 outline-none transition focus:border-[#16522D]"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => removeVariant(variant.id)}
+          className="flex h-12 w-12 items-center justify-center rounded-xl border border-red-200 text-red-500 transition hover:bg-red-50"
+        >
+          <Trash2 size={18} />
+        </button>
+      </div>
+    ))}
+  </div>
+</div>
+{/* ================= ADDONS ================= */}
+
+<div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+  <div className="mb-6 flex items-center justify-between">
+    <div>
+      <h3 className="text-lg font-semibold text-slate-900">
+        Product Add-ons
+      </h3>
+
+      <p className="text-sm text-slate-500">
+        Extra cheese, sauces, drinks, toppings...
+      </p>
+    </div>
+
+    <button
+      type="button"
+      onClick={addAddon}
+      className="rounded-xl bg-[#16522D] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#114125]"
+    >
+      + Add Add-on
+    </button>
+  </div>
+
+  <div className="space-y-4">
+
+    {formData.addons.length === 0 && (
+      <div className="rounded-xl border border-dashed border-slate-300 py-8 text-center text-slate-400">
+        No add-ons created yet.
+      </div>
+    )}
+
+    {formData.addons.map((addon) => (
+
+      <div
+        key={addon.id}
+        className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+      >
+
+        <div className="grid gap-4 lg:grid-cols-[1fr_1fr_160px_50px]">
+
+          <input
+            type="text"
+            placeholder="Addon Name"
+            value={addon.name}
+            onChange={(e)=>
+              updateAddon(
+                addon.id,
+                "name",
+                e.target.value
+              )
+            }
+            className="rounded-xl border border-slate-300 px-4 py-3"
+          />
+
+          <input
+            type="text"
+            placeholder="Description"
+            value={addon.description}
+            onChange={(e)=>
+              updateAddon(
+                addon.id,
+                "description",
+                e.target.value
+              )
+            }
+            className="rounded-xl border border-slate-300 px-4 py-3"
+          />
+
+          <div className="relative">
+
+            <span className="absolute left-4 top-1/2 -translate-y-1/2">
+              ₹
+            </span>
+
+            <input
+              type="number"
+              value={addon.price}
+              onChange={(e)=>
+                updateAddon(
+                  addon.id,
+                  "price",
+                  e.target.value
+                )
+              }
+              className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4"
+            />
+
+          </div>
+
+          <button
+            type="button"
+            onClick={()=>removeAddon(addon.id)}
+            className="flex h-12 w-12 items-center justify-center rounded-xl border border-red-200 text-red-500 hover:bg-red-50"
+          >
+            <Trash2 size={18}/>
+          </button>
+
+        </div>
+
+      </div>
+
+    ))}
+
+  </div>
+
+</div>
+
 
             <div className="space-y-6">
               {/* Product Image */}

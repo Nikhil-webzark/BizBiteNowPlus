@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SectionHeader from "../../components/customer/common/SectionHeader";
 import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import CategoryTabs from "../../components/customer/menu/CategoryTabs";
 import VegToggle from "../../components/customer/menu/VegToggle";
@@ -17,21 +18,23 @@ import MenuPageSkeleton from "../../components/customer/skeleton/MenuPageSkeleto
 import {
   getMenu,
   getCategories,
-  getFavorites,
-  toggleFavorite,
 } from "../../api/customerApi";
+
+import { useFavourite } from "../../context/FavouriteContext";
 
 const Menu = () => {
   const { cartItems, addItem, updateItem } = useCart();
   const navigate = useNavigate();
+  const {
+  favouriteProducts,
+  toggleFavourite,
+} = useFavourite();
 
   const [categories, setCategories] = useState([]);
 
   const [menuData, setMenuData] = useState([]);
 
-  const CUSTOMER_ID = "CUSTOMER_001";
 
-  const [favorites, setFavorites] = useState([]);
 
   const [cursor, setCursor] = useState(null);
 
@@ -96,9 +99,7 @@ const Menu = () => {
         setCategories(categoryResponse.data.data);
 
         await loadMenu(true);
-        const favoriteResponse = await getFavorites(CUSTOMER_ID);
-
-        setFavorites(favoriteResponse.data.data.map((item) => item.productId));
+       
       } catch (error) {
         console.log("Initial Menu Error", error);
       }
@@ -200,22 +201,7 @@ const Menu = () => {
 
     return products;
   }, [menuData, activeCategory, vegType, filters, sortBy]);
-  const handleFavorite = async (product) => {
-    try {
-      await toggleFavorite({
-        customerId: CUSTOMER_ID,
-        productId: product.id,
-      });
 
-      const exists = favorites.includes(product.id);
-
-      setFavorites((prev) =>
-        exists ? prev.filter((id) => id !== product.id) : [...prev, product.id],
-      );
-    } catch (err) {
-      console.log(err);
-    }
-  };
   const getCartItem = (productId) =>
     cartItems.find((item) => item.productId === productId);
 
@@ -250,40 +236,43 @@ const Menu = () => {
             subtitle="Freshly prepared dishes made just for you."
           />
 
-          <button
+          <Link
+            to="/customer/notifications"
             className="
-      relative
-      flex
-      h-11
-      w-11
-      items-center
-      justify-center
-      rounded-[10px]
-
-      transition
-      bg-slate-200 dark:bg-[#232627]
-    ">
-            <Bell size={22} className="text-slate-700 dark:text-slate-300" />
+    relative
+    flex
+    h-11
+    w-11
+    items-center
+    justify-center
+    rounded-xl
+    bg-slate-200
+    transition
+    hover:bg-slate-300
+  "
+          >
+            <Bell size={22} className="text-slate-700" />
 
             <span
               className="
-        absolute
-        -right-1
-        -top-1
-        flex
-        h-5
-        w-5
-        items-center
-        justify-center
-        rounded-full
-        bg-red-500
-        text-[10px]
-        font-bold
-        text-white
-      ">
+      absolute
+      -right-1
+      -top-1
+      flex
+      h-5
+      w-5
+      items-center
+      justify-center
+      rounded-full
+      bg-red-500
+      text-[10px]
+      font-bold
+      text-white
+    "
+            >
               3
             </span>
-          </button>
+          </Link>
         </div>
         {/* Categories */}
 
@@ -418,8 +407,9 @@ const Menu = () => {
                       key={product.id}
                       product={product}
                       quantity={getCartItem(product.id)?.quantity ?? 0}
-                      isFavourite={favorites.includes(product.id)}
-                      onFavourite={() => handleFavorite(product)}
+                      isFavourite={favouriteProducts.some(
+                          (item) => item.id === product.id)}
+                      onFavourite={() => toggleFavourite(product)}
                       onAdd={() => addItem(product, 1)}
                       onIncrease={() => addItem(product, 1)}
                       onDecrease={() => {
@@ -445,8 +435,9 @@ const Menu = () => {
                         key={product.id}
                         product={product}
                         quantity={getCartItem(product.id)?.quantity ?? 0}
-                        isFavourite={favorites.includes(product.id)}
-                        onFavourite={() => handleFavorite(product)}
+                        isFavourite={favouriteProducts.some( 
+                          (item) => item.id === product.id)}
+                        onFavourite={() => toggleFavourite(product)}
                         onAdd={() => addItem(product, 1)}
                         onIncrease={() => addItem(product, 1)}
                         onDecrease={() => {

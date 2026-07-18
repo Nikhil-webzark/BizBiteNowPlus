@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ShoppingBag, ArrowRight } from "lucide-react";
+import { ShoppingCart, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const FloatingCartButton = ({
@@ -83,7 +83,7 @@ const FloatingCartButton = ({
               bg-white/15
             "
           >
-            <ShoppingBag size={22} />
+            <ShoppingCart size={22} />
 
             <span
               className="

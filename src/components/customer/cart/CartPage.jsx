@@ -1,7 +1,7 @@
 import CartHeader from "./CartHeader";
 import CartItems from "./CartItems";
+
 import CouponSection from "./CouponSection";
-import OrderSummary from "./OrderSummary";
 import PaymentMethods from "./PaymentMethods";
 
 const CartPage = ({
@@ -27,7 +27,7 @@ const CartPage = ({
           onAddressClick={onAddressClick}
         />
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]">
+      
           <section className="space-y-6">
             <CartItems
               items={cartItems}
@@ -37,24 +37,57 @@ const CartPage = ({
               onContinueShopping={onContinueShopping}
             />
 
-            <CouponSection
-              coupon={coupon}
-              onChange={onCouponChange}
-              onApply={onApplyCoupon}
-            />
+<button
+  onClick={onCheckout}
+  className="
+    group
+    flex
+    w-full
+    items-center
+    justify-center
+    gap-2
+
+    rounded-2xl
+
+    bg-[var(--primary)]
+
+    px-6
+    py-4
+
+    text-base
+    font-semibold
+    text-white
+
+    shadow-lg
+    shadow-green-900/20
+
+    transition-all
+    duration-300
+
+    hover:-translate-y-0.5
+    hover:shadow-xl
+    hover:shadow-green-900/30
+
+    active:translate-y-0
+    active:scale-[0.98]
+
+    disabled:cursor-not-allowed
+    disabled:opacity-60
+    disabled:hover:translate-y-0
+    disabled:hover:shadow-lg
+  "
+>
+  <span>Proceed to Checkout</span>
+
+  <span className="transition-transform duration-300 group-hover:translate-x-1">
+    →
+  </span>
+</button>
 
             <PaymentMethods />
           </section>
-
-          <aside className="lg:sticky lg:top-6 lg:self-start">
-            <OrderSummary
-              summary={summary}
-              onCheckout={onCheckout}
-              onContinueShopping={onContinueShopping}
-            />
-          </aside>
         </div>
-      </div>
+
     </main>
   );
 };

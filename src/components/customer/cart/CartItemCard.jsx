@@ -1,61 +1,72 @@
-import {
-  Drumstick,
-  Leaf,
-  Trash2,
-} from "lucide-react";
+import { Trash2 } from "lucide-react";
 
 import QuantitySelector from "./QuantitySelector";
 
-const CartItemCard = ({
-  item,
-  onIncrease,
-  onDecrease,
-  onRemove,
-}) => {
-  const {
-    image,
-    name,
-    restaurant,
-    description,
-    price,
-    originalPrice,
-    quantity,
-    veg = true,
-  } = item;
+const CartItemCard = ({ item, onIncrease, onDecrease, onRemove }) => {
+const {
+  image,
+  name,
+  restaurant,
+  description,
+  price,
+  originalPrice,
+  quantity,
+  total,
+  selectedVariant,
+  selectedAddons = [],
+  veg = true,
+} = item;
 
   return (
     <article className="flex gap-3 p-4 transition-all duration-200 hover:bg-slate-50">
       {/* Product Image */}
       <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-        <img
-          src={image}
-          alt={name}
-          className="h-full w-full object-cover"
-        />
+        <img src={image} alt={name} className="h-full w-full object-cover" />
       </div>
 
       {/* Details */}
       <div className="flex min-w-0 flex-1 flex-col justify-between">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            {/* Veg / Non Veg */}
-            <div className="mb-1 flex items-center gap-1.5">
-              {veg ? (
-                <Leaf
-                  size={13}
-                  className="text-green-600"
-                />
-              ) : (
-                <Drumstick
-                  size={13}
-                  className="text-red-500"
-                />
-              )}
+{/* Veg / Non Veg */}
+<div className="mb-1 flex items-center gap-2">
+  <div
+    className={`
+      flex h-4 w-4 items-center justify-center
+      border
+      ${
+        veg
+          ? "border-green-600"
+          : "border-red-600"
+      }
+    `}
+  >
+    <div
+      className={`
+        h-2 w-2 rounded-full
+        ${
+          veg
+            ? "bg-green-600"
+            : "bg-red-600"
+        }
+      `}
+    />
+  </div>
 
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                {veg ? "Veg" : "Non Veg"}
-              </span>
-            </div>
+  <span
+    className={`
+      text-[11px]
+      font-medium
+      ${
+        veg
+          ? "text-green-700"
+          : "text-red-600"
+      }
+    `}
+  >
+    {veg ? "Veg" : "Non-Veg"}
+  </span>
+</div>
 
             {/* Name */}
             <h3 className="truncate text-[15px] font-semibold text-slate-900">
@@ -64,9 +75,7 @@ const CartItemCard = ({
 
             {/* Restaurant */}
             {restaurant && (
-              <p className="mt-0.5 text-xs text-slate-500">
-                {restaurant}
-              </p>
+              <p className="mt-0.5 text-xs text-slate-500">{restaurant}</p>
             )}
 
             {/* Description */}
@@ -102,21 +111,17 @@ const CartItemCard = ({
           />
 
           <div className="text-right">
-            <div className="flex items-center justify-end gap-1.5">
-              <span className="text-lg font-bold text-slate-900">
-                ₹{price}
-              </span>
+            <span className="text-lg font-bold text-slate-900">
+              ₹{total}
+            </span>
 
-              {originalPrice > price && (
-                <span className="text-[11px] text-slate-400 line-through">
-                  ₹{originalPrice}
-                </span>
-              )}
-            </div>
+            <p className="text-xs text-slate-500">
+              ₹{price} × {quantity}
+            </p>
 
             {originalPrice > price && (
               <p className="text-[10px] font-medium text-green-600">
-                Save ₹{originalPrice - price}
+                Save ₹{(originalPrice - price) * quantity}
               </p>
             )}
           </div>

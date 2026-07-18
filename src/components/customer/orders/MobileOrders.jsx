@@ -1,19 +1,20 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-
+import { Link } from "react-router-dom";
 import {
   ShoppingBag,
   CheckCircle2,
   Bell,
 } from "lucide-react";
-
+import HorizontalSection from "../home/HorizontalSection";
 import SectionHeader from "../common/SectionHeader";
 import MobileOrdersSkeleton from "../../../components/customer/skeleton/MobileOrdersSkeleton";
 import MobileCurrentCard from "./MobileCurrentCard";
 import MobileTimeline from "./MobileTimeline";
 import ContactDeliveryCard from "./ContactDeliveryCard";
 import CompactHistoryCard from "./CompactHistoryCard";
+import CurrentOrderSection from "./CurrentOrderSection";
 
 import {
   getCurrentOrders,
@@ -105,45 +106,43 @@ if (loading) {
     subtitle="Track your orders in real time"
   />
 
-  <button
-    className="
-      relative
+  <Link
+            to="/customer/notifications"
+            className="
+    relative
+    flex
+    h-11
+    w-11
+    items-center
+    justify-center
+    rounded-xl
+    bg-slate-200
+    transition
+    hover:bg-slate-300
+  "
+          >
+            <Bell size={22} className="text-slate-700" />
+
+            <span
+              className="
+      absolute
+      -right-1
+      -top-1
       flex
-      h-11
-      w-11
+      h-5
+      w-5
       items-center
       justify-center
-      rounded-[10px]
-      
-      transition
-      bg-slate-200
+      rounded-full
+      bg-red-500
+      text-[10px]
+      font-bold
+      text-white
     "
-  >
-    <Bell
-      size={22}
-      className="text-slate-700 "
-    />
-
-    <span
-      className="
-        absolute
-        -right-1
-        -top-1
-        flex
-        h-5
-        w-5
-        items-center
-        justify-center
-        rounded-full
-        bg-red-500
-        text-[10px]
-        font-bold
-        text-white
-      "
-    >
-      3
-    </span>
-  </button>
+            >
+              3
+            </span>
+          </Link>
 </div>
 
         {/* Current Order */}
@@ -151,66 +150,48 @@ if (loading) {
         {currentOrders.length > 0 && (
           <section className="mt-6">
 
-            <div className="mb-3 flex items-center justify-between">
 
-              <h2 className="text-lg font-bold text-slate-900">
-                Current Order
-              </h2>
-
-              <div
-                className="
-                  flex
-                  items-center
-                  gap-1.5
-                  rounded-full
-                  bg-green-50
-                  px-3
-                  py-1
-                  text-xs
-                  font-semibold
-                  text-green-700
-                "
-              >
-                <CheckCircle2 size={14} />
-                Active
-              </div>
-
-            </div>
 
             <div className="space-y-5">
+<CurrentOrderSection
+  title="Current Orders"
+  subtitle={`${currentOrders.length} Active Orders`}
+>
+  {currentOrders.map((order) => (
+    <div
+      key={order.id}
+        className="
+    snap-center
+    shrink-0
 
-              {currentOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="space-y-4 bg-white shadow-sm rounded-[14px]"
-                >
+    w-full
+    max-w-full
 
-                  <MobileCurrentCard
-                    order={order}
-                    onView={() =>
-                      handleViewOrder(order)
-                    }
-                    onReorder={() =>
-                      handleReorder(order)
-                    }
-                  />
-                   <div className="my-4 border-t border-slate-200" />
-                  <MobileTimeline
-                    timeline={
-                      order.tracking?.steps || []
-                    }
-                    currentStep={
-                      order.tracking?.currentStep
-                    }
-                  />
+    space-y-4
 
-                  <ContactDeliveryCard
-                    order={order}
-                  />
+    rounded-[14px]
+    bg-white
+    shadow-sm
+  "
+    >
+      <MobileCurrentCard
+        order={order}
+        onView={() => handleViewOrder(order)}
+        onReorder={() => handleReorder(order)}
+      />
 
-                </div>
-              ))}
+      <div className="my-4 border-t border-slate-200" />
 
+      <MobileTimeline
+        timeline={order.tracking?.steps || []}
+        currentStep={order.tracking?.currentStep}
+      />
+
+      <ContactDeliveryCard order={order} />
+    </div>
+  ))}
+</CurrentOrderSection>
+            
             </div>
 
           </section>

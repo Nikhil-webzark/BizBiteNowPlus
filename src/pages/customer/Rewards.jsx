@@ -10,7 +10,7 @@ import { getCustomerLoyaltyStatus } from "../../api/loyalty";
 import { getActiveOffers } from "../../api/offers";
 import { loyaltyData as DEMO_LOYALTY_DATA } from "../../data/customer/rewardsData";
 import { DEMO_ACTIVE_OFFERS } from "../../data/demoActiveOffers";
-
+import { Link } from "react-router-dom";
 import ActivityTimeline from "../../components/customer/rewards/ActivityTimeline";
 import { DEMO_ACTIVITY } from "../../data/customer/demoActivityData";
 import { Gift } from "lucide-react";
@@ -56,8 +56,7 @@ const Rewards = () => {
     setAppliedCoupon(coupon);
     localStorage.setItem("appliedCoupon", JSON.stringify(coupon));
   };
-  const rewardReady =
-  loyalty.stampsCollected >= loyalty.threshold;
+  const rewardReady = loyalty.stampsCollected >= loyalty.threshold;
 
   const handleCopy = () => {
     // Coupons.jsx already copies to clipboard itself and calls this back —
@@ -88,48 +87,53 @@ const Rewards = () => {
       >
         {/* Header */}
         <div className="w-full flex items-center z-50  rounded-xl p-2 justify-between">
-              <SectionHeader
-                title="Rewards & Loyalty"
-                subtitle="Track your orders in real time"
-              />
+          <div>
+            <h1
+              className="font-bold text-slate-900 dark:text-white"
+              style={{ fontSize: "26px" }}
+            >
+              Rewards & Loyalty
+            </h1>
+          </div>
 
-              <button
-                className="
-      relative
+          <Link
+            to="/customer/notifications"
+            className="
+    relative
+    flex
+    h-11
+    w-11
+    items-center
+    justify-center
+    rounded-xl
+    bg-slate-200
+    transition
+    hover:bg-slate-300
+  "
+          >
+            <Bell size={22} className="text-slate-700" />
+
+            <span
+              className="
+      absolute
+      -right-1
+      -top-1
       flex
-      h-11
-      w-11
+      h-5
+      w-5
       items-center
       justify-center
-      rounded-[10px]
-      
-      transition
-      bg-slate-200
+      rounded-full
+      bg-red-500
+      text-[10px]
+      font-bold
+      text-white
     "
-              >
-                <Bell size={22} className="text-slate-700 " />
-
-                <span
-                  className="
-        absolute
-        -right-1
-        -top-1
-        flex
-        h-5
-        w-5
-        items-center
-        justify-center
-        rounded-full
-        bg-red-500
-        text-[10px]
-        font-bold
-        text-white
-      "
-                >
-                  3
-                </span>
-              </button>
-            </div>
+            >
+              3
+            </span>
+          </Link>
+        </div>
 
         {/* Loyalty */}
 
@@ -139,7 +143,7 @@ const Rewards = () => {
 
             <RewardProgress data={loyalty} />
 
-            {rewardReady && <Reward Ready Banner />}
+            {/* {rewardReady && <Reward Ready Banner />} */}
 
             <Coupons
               coupons={coupons}

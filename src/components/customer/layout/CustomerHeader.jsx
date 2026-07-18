@@ -1,8 +1,9 @@
 import {
   Bell,
   User,
-  ShoppingBag,
+  ShoppingCart,
   Gift,
+  ShoppingBag,
   MapPin,
   ChevronDown,
   Plus,
@@ -12,6 +13,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
 import { useNavigate } from "react-router-dom";
+
+
+import { useCart } from "../../../context/CartContext";
 
 import { getStore, getNotifications } from "../../../api/customerApi";
 
@@ -29,6 +33,12 @@ const CustomerHeader = ({ sidebarExpanded, isDesktop }) => {
     title: "Select your location",
   });
   const wrapperRef = useRef(null);
+  const { cartItems } = useCart();
+
+const cartCount = cartItems.reduce(
+  (total, item) => total + (item.quantity || 1),
+  0
+);
 
   useEffect(() => {
     const loadData = async () => {
@@ -64,6 +74,9 @@ const CustomerHeader = ({ sidebarExpanded, isDesktop }) => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+
+
 
   const getNotificationIcon = (type) => {
     if (type === "reward") return Gift;
@@ -109,35 +122,33 @@ const CustomerHeader = ({ sidebarExpanded, isDesktop }) => {
     );
   };
   return (
-    <header
-      className="
-    lg:fixed
+<header
+  className="
     relative
     z-50
-    w-full
     transition-all
     duration-300
     ease-in-out
 
-    px-3
+
     lg:pr-10
     lg:px-2
   "
-      style={
-        isDesktop
-          ? {
-              left: sidebarExpanded ? "16.25rem" : "7.25rem",
+  style={
+    isDesktop
+      ? {
 
-              width: sidebarExpanded
-                ? "calc(100vw - 16.25rem)"
-                : "calc(100vw - 7.25rem)",
-            }
-          : {
-              left: 0,
-              width: "100%",
-            }
-      }
-    >
+          width: sidebarExpanded
+            ? "calc(100% + 2rem)"
+            : "calc(100% - 0rem)",
+        }
+      : {
+          marginLeft: 0,
+          marginRight:0,
+          width: "100%",
+        }
+  }
+>
       <div
         ref={wrapperRef}
         className="
@@ -154,16 +165,11 @@ const CustomerHeader = ({ sidebarExpanded, isDesktop }) => {
 
     rounded-[10px]
 
-    lg:border
-    lg:border-slate-200 dark:border-[#A9BDCF]/40
 
-    lg:bg-white/90 dark:bg-[#181A1B]
 
     px-5
 
-    lg:shadow-xl
 
-    lg:backdrop-blur-xl
 
     transition-all
 duration-300
@@ -175,6 +181,7 @@ ease-in-out
         <button
           className="
           flex
+          ml-0
           lg:ml-5
           min-w-0
           flex-1
@@ -191,6 +198,8 @@ ease-in-out
             className="
             h-11
             w-11
+            lg:h-13
+            lg:w-13
 
             rounded-[10px]
 
@@ -208,8 +217,8 @@ ease-in-out
             <h2
               className="
               truncate
-
               text-[15px]
+              lg:text-[20px]
               font-bold
 
               text-slate-900 dark:text-white
@@ -242,6 +251,7 @@ ease-in-out
           gap-3
         "
         >
+     
           {/* Location Dropdown */}
 
           <div className="relative hidden lg:block">
@@ -385,6 +395,63 @@ ease-in-out
               )}
             </AnimatePresence>
           </div>
+          <button
+  onClick={() => navigate("/customer/cart")}
+  className="
+    relative
+    flex
+    h-11
+    w-11
+    lg:hidden
+    items-center
+    justify-center
+    rounded-xl
+    border
+    border-slate-200
+    bg-slate-200
+    text-slate-700
+
+    transition-all
+    duration-200
+    hover:border-[#16522d]
+    hover:bg-[#16522d]
+    hover:text-white
+    active:scale-95
+    dark:border-[#A9BDCF]/30
+    dark:bg-[#181A1B]
+    dark:text-[#A9BDCF]
+    dark:hover:bg-[#124224]
+  "
+>
+  <ShoppingCart
+    size={20}
+    strokeWidth={2.2}
+  />
+
+  {cartCount > 0 && (
+    <span
+      className="
+        absolute
+        -right-1
+        -top-1
+        flex
+        h-5
+        min-w-[20px]
+        items-center
+        justify-center
+        rounded-full
+        bg-red-500
+        px-1
+        text-[10px]
+        font-bold
+        leading-none
+        text-white
+      "
+    >
+      {cartCount}
+    </span>
+  )}
+</button>
           {/* Notification */}
 
           <button

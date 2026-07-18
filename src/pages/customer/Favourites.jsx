@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Bell, Heart } from "lucide-react";
-
+import { Link } from "react-router-dom";
 import SectionHeader from "../../components/customer/common/SectionHeader";
 import ProductCard from "../../components/customer/menu/ProductCard";
 import MenuListCard from "../../components/customer/menu/MenuListCard";
@@ -134,53 +134,43 @@ const Favourites = () => {
             subtitle="All your saved dishes in one place."
           />
 
-          <button
+          <Link
+            to="/customer/notifications"
             className="
-              relative
-
-              flex
-              h-11
-              w-11
-
-              items-center
-              justify-center
-
-              rounded-[10px]
-
-              bg-slate-200
-            "
+    relative
+    flex
+    h-11
+    w-11
+    items-center
+    justify-center
+    rounded-xl
+    bg-slate-200
+    transition
+    hover:bg-slate-300
+  "
           >
-            <Bell
-              size={22}
-              className="text-slate-700"
-            />
+            <Bell size={22} className="text-slate-700" />
 
             <span
               className="
-                absolute
-                -right-1
-                -top-1
-
-                flex
-                h-5
-                w-5
-
-                items-center
-                justify-center
-
-                rounded-full
-
-                bg-red-500
-
-                text-[10px]
-                font-bold
-
-                text-white
-              "
+      absolute
+      -right-1
+      -top-1
+      flex
+      h-5
+      w-5
+      items-center
+      justify-center
+      rounded-full
+      bg-red-500
+      text-[10px]
+      font-bold
+      text-white
+    "
             >
               3
             </span>
-          </button>
+          </Link>
         </div>
 
         {/* Body */}

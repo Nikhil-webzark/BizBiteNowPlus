@@ -61,7 +61,7 @@ const SectionHeader = ({
 
             <h2
               className="
-                text-3xl
+                text-xl
 
                 font-bold
 
