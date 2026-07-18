@@ -49,9 +49,17 @@ export default defineConfig({
           },
         ],
       },
-workbox: {
-  globPatterns: ["**/*.{js,css,html,ico,png,woff2}"],
-},
+
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,ico,png,woff2}"],
+
+        // Increase cache size limit to 5 MB
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+      },
     }),
   ],
+
+  build: {
+    chunkSizeWarningLimit: 3000,
+  },
 });

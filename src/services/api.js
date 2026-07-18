@@ -1,26 +1,30 @@
-import axios from 'axios';
+import API from "../api/axios";
 
-// 1. Axios instance banaya jisme backend ka base URL set kiya
-const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+// =======================
+// AUTH APIs
+// =======================
 
-// 2. Request Interceptor: Yeh har API call ke sath automatic token bhejega
-API.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`; // Backend JWT verify karne ke liye
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+export const registerSeller = (data) =>
+  API.post("/users/admin/register-seller", data);
 
-// 3. Named Export (Taaki Vite default export ka error na de)
-export { API };
+export const loginInit = (data) => API.post("/users/login/init", data);
+
+export const login = (data) => API.post("/users/login", data);
+
+export const forgotPin = (data) => API.post("/users/forgot-pin", data);
+
+export const resetPin = (data) => API.post("/users/reset-pin", data);
+
+export const changePin = (data) => API.post("/users/change-pin", data);
+
+export const registerCustomer = (data) =>
+  API.post("/users/customer/register", data);
+
+export const verifyAccessToken = (data) =>
+  API.post("/users/verify-access-token", data);
+
+export const sendOTP = (data) => API.post("/users/send-otp", data);
+
+export const verifyOTP = (data) => API.post("/users/verify-otp", data);
+
+export const resendOTP = (data) => API.post("/users/resend-otp", data);
