@@ -5,17 +5,19 @@ import logoHorizontal from "../../assets/bizbite_logo_horizontal.png";
 import useAuthStore from "../../store/authStore";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Step order: phone -> otp -> pin
-const STEPS = ["phone", "otp", "pin"];
+// Step order depends on role — seller: phone -> otp -> pin, customer: phone -> pin
+const STEPS_SELLER = ["phone", "otp", "pin"];
+const STEPS_CUSTOMER = ["phone", "pin"];
 
 export default function Login() {
   const navigate = useNavigate();
-  const { sendOTP, verifyOTP, resendOTP, login, loading } = useAuthStore();
+  const { loginInit, verifyOTP, resendOTP, login, loading } = useAuthStore();
 
   const [step, setStep] = useState("phone");
   const [error, setError] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [reqId, setReqId] = useState("");
+  const [loginRole, setLoginRole] = useState(""); // "customer" | "seller"
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendMessage, setResendMessage] = useState("");
 
@@ -25,6 +27,9 @@ export default function Login() {
     pin: "",
   });
 
+  const STEPS =
+    loginRole === "customer" ? STEPS_CUSTOMER : STEPS_SELLER;
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -32,7 +37,8 @@ export default function Login() {
     });
   };
 
-  // Step 1: Enter Phone Number -> POST /users/send-otp
+  // Step 1: Enter Phone Number -> POST /users/login/init
+  // Checks role. Seller -> OTP sent, go to otp step. Customer -> skip OTP, go to pin step.
   const handlePhoneSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -43,11 +49,19 @@ export default function Login() {
     }
 
     try {
-      const data = await sendOTP({ identifier: formData.phoneNumber });
+      const data = await loginInit({ identifier: formData.phoneNumber });
 
-      // Backend returns the reqId as data.data.message (mislabeled), not data.reqId
-      setReqId(data.reqId || data.data?.reqId || data.data?.message || "");
-      setStep("otp");
+      const role = (data.role || data.data?.role || "").toLowerCase();
+      const incomingReqId = data.reqId || data.data?.reqId || "";
+
+      setLoginRole(role);
+      setReqId(incomingReqId);
+
+      if (role === "customer") {
+        setStep("pin");
+      } else {
+        setStep("otp");
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Unable to continue.");
     }
@@ -76,7 +90,7 @@ export default function Login() {
     }
   };
 
-  // Step 2: Receive & Enter OTP -> POST /verify-otp (purpose: LOGIN)
+  // Step 2 (Seller only): Receive & Enter OTP -> POST /verify-otp (purpose: LOGIN)
   const handleOtpSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -94,7 +108,7 @@ export default function Login() {
     }
   };
 
-  // Step 3: Enter PIN -> POST /login { identifier, pin, verificationToken }
+  // Final Step: Enter PIN -> POST /login { identifier, pin, verificationToken }
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -111,10 +125,10 @@ export default function Login() {
         identifier: formData.phoneNumber,
         pin: formData.pin,
         fcm_token: null,
-        verificationToken,
+        verificationToken, // null for customer (OTP skipped), set for seller after OTP verify
       });
 
-      navigate("/seller/dashboard");
+      navigate(loginRole === "customer" ? "/customer/dashboard" : "/seller/dashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Invalid PIN. Please try again.");
     }
@@ -124,6 +138,7 @@ export default function Login() {
     setError("");
     const idx = STEPS.indexOf(step);
     if (idx > 0) setStep(STEPS[idx - 1]);
+    else setStep("phone");
   };
 
   return (
@@ -147,8 +162,6 @@ export default function Login() {
           {/* Main Card */}
 
           <div className="relative z-10 w-full max-w-6xl grid lg:grid-cols-2 rounded-[32px] overflow-hidden  shadow-[0_40px_80px_rgba(22,82,45,0.15)]">
-            {/* LEFT PANEL */}
-
             {/* LEFT PANEL */}
 
             <div className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-gradient-to-br from-[#16522d] via-[#124325] to-[#08160e] p-8 text-white">
@@ -267,11 +280,10 @@ export default function Login() {
                   {STEPS.map((s, i) => (
                     <div
                       key={s}
-                      className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
-                        STEPS.indexOf(step) >= i
-                          ? "bg-[#16522d]"
-                          : "bg-gray-200"
-                      }`}
+                      className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${STEPS.indexOf(step) >= i
+                        ? "bg-[#16522d]"
+                        : "bg-gray-200"
+                        }`}
                     />
                   ))}
                 </div>
@@ -330,10 +342,10 @@ export default function Login() {
                         disabled={loading}
                         className="group flex w-full items-center justify-center gap-2 rounded-lg bg-[#16522d] py-2.5 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:bg-[#1d6438] disabled:cursor-not-allowed disabled:opacity-70">
                         {loading ? (
-                          <span>Sending OTP...</span>
+                          <span>Checking...</span>
                         ) : (
                           <>
-                            <span>Send OTP</span>
+                            <span>Continue</span>
                             <ArrowRight
                               size={18}
                               className="transition-transform duration-300 group-hover:translate-x-1"
@@ -344,7 +356,7 @@ export default function Login() {
                     </motion.form>
                   )}
 
-                  {/* ================= STEP 2: OTP ================= */}
+                  {/* ================= STEP 2: OTP (Seller only) ================= */}
 
                   {step === "otp" && (
                     <motion.form
@@ -488,7 +500,7 @@ export default function Login() {
                         </button>
 
                         <Link
-                          to="/seller/forgot-pin"
+                          to="/auth/forgot-pin"
                           className="font-semibold text-[#16522d] transition hover:text-[#ffc700]">
                           Forgot PIN?
                         </Link>

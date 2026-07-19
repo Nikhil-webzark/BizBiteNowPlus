@@ -1,16 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-
-import {
-  login,
-  forgotPin,
-  resetPin,
-  changePin,
-  sendOTP,
-  verifyOTP,
-  resendOTP,
-  verifyAccessToken,
-} from "../services/api";
+import API from "../services/api";
 
 const useAuthStore = create(
   persist(
@@ -28,8 +18,35 @@ const useAuthStore = create(
       error: null,
 
       verificationToken: null,
+      reqId: null,
+      loginRole: null, // role returned by login/init, used to decide OTP vs direct PIN
 
       isAuthenticated: false,
+
+      // ===========================
+      // LOGIN INIT (Step 1 - checks role, sends OTP if Seller)
+      // ===========================
+
+      loginInit: async (payload) => {
+        try {
+          set({ loading: true, error: null });
+
+          const res = await API.post("/users/login/init", payload);
+          const data = res.data;
+
+          set({
+            loginRole: data.role || data.data?.role || null,
+            reqId: data.reqId || data.data?.reqId || null,
+          });
+
+          return data;
+        } catch (err) {
+          set({ error: err.response?.data?.message || "Unable to continue" });
+          throw err;
+        } finally {
+          set({ loading: false });
+        }
+      },
 
       // ===========================
       // LOGIN
@@ -37,13 +54,9 @@ const useAuthStore = create(
 
       login: async (payload) => {
         try {
-          set({
-            loading: true,
-            error: null,
-          });
+          set({ loading: true, error: null });
 
-          const res = await login(payload);
-
+          const res = await API.post("/users/login", payload);
           const data = res.data;
 
           set({
@@ -56,15 +69,44 @@ const useAuthStore = create(
 
           return data;
         } catch (err) {
-          set({
-            error: err.response?.data?.message || "Login failed",
-          });
-
+          set({ error: err.response?.data?.message || "Login failed" });
           throw err;
         } finally {
-          set({
-            loading: false,
-          });
+          set({ loading: false });
+        }
+      },
+
+      // ===========================
+      // REGISTER SELLER
+      // ===========================
+
+      registerSeller: async (payload) => {
+        try {
+          set({ loading: true, error: null });
+          const res = await API.post("/users/admin/register-seller", payload);
+          return res.data;
+        } catch (err) {
+          set({ error: err.response?.data?.message || "Registration failed" });
+          throw err;
+        } finally {
+          set({ loading: false });
+        }
+      },
+
+      // ===========================
+      // REGISTER CUSTOMER
+      // ===========================
+
+      registerCustomer: async (payload) => {
+        try {
+          set({ loading: true, error: null });
+          const res = await API.post("/users/customer/register", payload);
+          return res.data;
+        } catch (err) {
+          set({ error: err.response?.data?.message || "Registration failed" });
+          throw err;
+        } finally {
+          set({ loading: false });
         }
       },
 
@@ -74,18 +116,11 @@ const useAuthStore = create(
 
       sendOTP: async (payload) => {
         try {
-          set({
-            loading: true,
-            error: null,
-          });
-
-          const res = await sendOTP(payload);
-
+          set({ loading: true, error: null });
+          const res = await API.post("/users/send-otp", payload);
           return res.data;
         } finally {
-          set({
-            loading: false,
-          });
+          set({ loading: false });
         }
       },
 
@@ -95,22 +130,14 @@ const useAuthStore = create(
 
       verifyOTP: async (payload) => {
         try {
-          set({
-            loading: true,
-            error: null,
-          });
+          set({ loading: true, error: null });
+          const res = await API.post("/users/verify-otp", payload);
 
-          const res = await verifyOTP(payload);
-
-          set({
-            verificationToken: res.data.verificationToken,
-          });
+          set({ verificationToken: res.data.verificationToken });
 
           return res.data;
         } finally {
-          set({
-            loading: false,
-          });
+          set({ loading: false });
         }
       },
 
@@ -120,18 +147,11 @@ const useAuthStore = create(
 
       resendOTP: async (payload) => {
         try {
-          set({
-            loading: true,
-            error: null,
-          });
-
-          const res = await resendOTP(payload);
-
+          set({ loading: true, error: null });
+          const res = await API.post("/users/resend-otp", payload);
           return res.data;
         } finally {
-          set({
-            loading: false,
-          });
+          set({ loading: false });
         }
       },
 
@@ -141,18 +161,11 @@ const useAuthStore = create(
 
       verifyAccessToken: async (payload) => {
         try {
-          set({
-            loading: true,
-            error: null,
-          });
-
-          const res = await verifyAccessToken(payload);
-
+          set({ loading: true, error: null });
+          const res = await API.post("/users/verify-access-token", payload);
           return res.data;
         } finally {
-          set({
-            loading: false,
-          });
+          set({ loading: false });
         }
       },
 
@@ -162,18 +175,11 @@ const useAuthStore = create(
 
       forgotPin: async (payload) => {
         try {
-          set({
-            loading: true,
-            error: null,
-          });
-
-          const res = await forgotPin(payload);
-
+          set({ loading: true, error: null });
+          const res = await API.post("/users/forgot-pin", payload);
           return res.data;
         } finally {
-          set({
-            loading: false,
-          });
+          set({ loading: false });
         }
       },
 
@@ -183,18 +189,11 @@ const useAuthStore = create(
 
       resetPin: async (payload) => {
         try {
-          set({
-            loading: true,
-            error: null,
-          });
-
-          const res = await resetPin(payload);
-
+          set({ loading: true, error: null });
+          const res = await API.post("/users/reset-pin", payload);
           return res.data;
         } finally {
-          set({
-            loading: false,
-          });
+          set({ loading: false });
         }
       },
 
@@ -204,18 +203,11 @@ const useAuthStore = create(
 
       changePin: async (payload) => {
         try {
-          set({
-            loading: true,
-            error: null,
-          });
-
-          const res = await changePin(payload);
-
+          set({ loading: true, error: null });
+          const res = await API.post("/users/change-pin", payload);
           return res.data;
         } finally {
-          set({
-            loading: false,
-          });
+          set({ loading: false });
         }
       },
 
@@ -230,6 +222,8 @@ const useAuthStore = create(
           role: null,
           profile: null,
           verificationToken: null,
+          reqId: null,
+          loginRole: null,
           isAuthenticated: false,
           error: null,
         });

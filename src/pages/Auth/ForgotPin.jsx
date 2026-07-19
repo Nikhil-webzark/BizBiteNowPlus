@@ -17,7 +17,7 @@ const STEPS = ["phone", "otp", "reset"];
 
 export default function ForgotPin() {
   const navigate = useNavigate();
-  const { forgotPin, verifyOTP, resendOTP, resetPin, loading } =
+  const { forgotPin, verifyOTP, resendOTP, resetPin, logout, loading } =
     useAuthStore();
 
   const [step, setStep] = useState("phone");
@@ -128,6 +128,12 @@ export default function ForgotPin() {
       });
 
       setStep("done");
+
+      // Clear any stale session/auth state (e.g. isAuthenticated left over
+      // from a previous login) so /seller/login doesn't auto-bounce to the
+      // dashboard via the route guard.
+      logout();
+
       setTimeout(() => navigate("/seller/login"), 2000);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to reset PIN.");
@@ -181,9 +187,8 @@ export default function ForgotPin() {
               {STEPS.map((s, i) => (
                 <div
                   key={s}
-                  className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
-                    STEPS.indexOf(step) >= i ? "bg-[#16522d]" : "bg-gray-200"
-                  }`}
+                  className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${STEPS.indexOf(step) >= i ? "bg-[#16522d]" : "bg-gray-200"
+                    }`}
                 />
               ))}
             </div>

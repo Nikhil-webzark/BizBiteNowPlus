@@ -78,18 +78,18 @@ export default function App() {
       <Routes>
         {/* Default */}
 
-        <Route path="/" element={<Navigate to="/customer" replace />} />
+        <Route path="/" element={<Navigate to="/auth/login" replace />} />
 
         {/* Authentication */}
 
-        <Route path="/seller/login" element={<Login />} />
+        <Route path="/auth/login" element={<Login />} />
 
-        <Route path="/seller/forgot-pin" element={<ForgotPin />} />
+        <Route path="/auth/forgot-pin" element={<ForgotPin />} />
 
         <Route path="/seller/register" element={<RegisterSeller />} />
         <Route path="/customer/register" element={<CustomerRegister />} />
 
-        <Route path="/seller/register-success" element={<RegisterSuccess />} />
+        <Route path="/auth/register-success" element={<RegisterSuccess />} />
 
         {/* ======================
             CUSTOMER APP
