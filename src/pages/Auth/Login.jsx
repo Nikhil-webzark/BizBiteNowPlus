@@ -52,7 +52,9 @@ export default function Login() {
       const data = await loginInit({ identifier: formData.phoneNumber });
 
       const role = (data.role || data.data?.role || "").toLowerCase();
-      const incomingReqId = data.reqId || data.data?.reqId || "";
+      // Backend returns the reqId as data.data.message (mislabeled), not data.reqId
+      const incomingReqId =
+        data.reqId || data.data?.reqId || data.data?.message || "";
 
       setLoginRole(role);
       setReqId(incomingReqId);
@@ -281,8 +283,8 @@ export default function Login() {
                     <div
                       key={s}
                       className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${STEPS.indexOf(step) >= i
-                        ? "bg-[#16522d]"
-                        : "bg-gray-200"
+                          ? "bg-[#16522d]"
+                          : "bg-gray-200"
                         }`}
                     />
                   ))}
@@ -500,7 +502,7 @@ export default function Login() {
                         </button>
 
                         <Link
-                          to="/auth/forgot-pin"
+                          to="/seller/forgot-pin"
                           className="font-semibold text-[#16522d] transition hover:text-[#ffc700]">
                           Forgot PIN?
                         </Link>
