@@ -1,155 +1,97 @@
 import api from "../axios";
 
-
 const BASE_URL = "/orders";
 
-
-export const createOrder = async (payload, config = {}) => {
+/**
+ * Generic Request Wrapper
+ */
+const request = async (callback) => {
   try {
-    const { data } = await api.post(
-      `${BASE_URL}/create`,
-      payload,
-      config
-    );
-
+    const { data } = await callback();
     return data;
   } catch (error) {
     throw normalizeApiError(error);
   }
 };
 
+/* -------------------------------------------------------------------------- */
+/*                                  ORDERS                                    */
+/* -------------------------------------------------------------------------- */
 
-export const getCustomerOrders = async (params = {}, config = {}) => {
-  try {
-    const { data } = await api.get(
-      `${BASE_URL}/customer-orders`,
-      {
-        params,
-        ...config,
-      }
-    );
+export const createOrder = (payload, config = {}) =>
+  request(() =>
+    api.post(`${BASE_URL}/create`, payload, config)
+  );
 
-    return data;
-  } catch (error) {
-    throw normalizeApiError(error);
-  }
-};
+export const getCustomerOrders = (params = {}, config = {}) =>
+  request(() =>
+    api.get(`${BASE_URL}/customer-orders`, {
+      params,
+      ...config,
+    })
+  );
 
+export const getCustomerOrder = (orderId, config = {}) =>
+  request(() =>
+    api.get(`${BASE_URL}/${orderId}`, config)
+  );
 
-export const reorder = async (payload, config = {}) => {
-  try {
-    const { data } = await api.post(
-      `${BASE_URL}/reorder`,
-      payload,
-      config
-    );
+export const reorder = (payload, config = {}) =>
+  request(() =>
+    api.post(`${BASE_URL}/reorder`, payload, config)
+  );
 
-    return data;
-  } catch (error) {
-    throw normalizeApiError(error);
-  }
-};
+export const cancelOrder = (orderId, config = {}) =>
+  request(() =>
+    api.patch(`${BASE_URL}/${orderId}/cancel`, {}, config)
+  );
 
-export const initiateCheckout = async (
-  payload,
-  config = {}
-) => {
-  try {
-    const { data } = await api.post(
+export const trackOrder = (orderId, config = {}) =>
+  request(() =>
+    api.get(`${BASE_URL}/${orderId}/track`, config)
+  );
+
+/* -------------------------------------------------------------------------- */
+/*                                CHECKOUT                                    */
+/* -------------------------------------------------------------------------- */
+
+export const initiateCheckout = (payload, config = {}) =>
+  request(() =>
+    api.post(
       `${BASE_URL}/checkout/initiate`,
       payload,
       config
-    );
+    )
+  );
 
-    return data;
-  } catch (error) {
-    throw normalizeApiError(error);
-  }
-};
-
-
-export const verifyCheckout = async (
-  payload,
-  config = {}
-) => {
-  try {
-    const { data } = await api.post(
+export const verifyCheckout = (payload, config = {}) =>
+  request(() =>
+    api.post(
       `${BASE_URL}/checkout/verify`,
       payload,
       config
-    );
+    )
+  );
 
-    return data;
-  } catch (error) {
-    throw normalizeApiError(error);
-  }
-};
+/* -------------------------------------------------------------------------- */
+/*                                 DINE-IN                                    */
+/* -------------------------------------------------------------------------- */
 
-
-export const createDineInOrder = async (
+export const createDineInOrder = (
   payload,
   config = {}
-) => {
-  try {
-    const { data } = await api.post(
+) =>
+  request(() =>
+    api.post(
       `${BASE_URL}/dine-in/create`,
       payload,
       config
-    );
+    )
+  );
 
-    return data;
-  } catch (error) {
-    throw normalizeApiError(error);
-  }
-};
-export const getCustomerOrder = async (
-  orderId,
-  config = {}
-) => {
-  try {
-    const { data } = await api.get(
-      `${BASE_URL}/${orderId}`,
-      config
-    );
-
-    return data;
-  } catch (error) {
-    throw normalizeApiError(error);
-  }
-};
-
-export const cancelOrder = async (
-  orderId,
-  config = {}
-) => {
-  try {
-    const { data } = await api.patch(
-      `${BASE_URL}/${orderId}/cancel`,
-      {},
-      config
-    );
-
-    return data;
-  } catch (error) {
-    throw normalizeApiError(error);
-  }
-};
-
-export const trackOrder = async (
-  orderId,
-  config = {}
-) => {
-  try {
-    const { data } = await api.get(
-      `${BASE_URL}/${orderId}/track`,
-      config
-    );
-
-    return data;
-  } catch (error) {
-    throw normalizeApiError(error);
-  }
-};
+/* -------------------------------------------------------------------------- */
+/*                              ERROR HANDLER                                 */
+/* -------------------------------------------------------------------------- */
 
 function normalizeApiError(error) {
   if (error?.response) {
@@ -178,7 +120,8 @@ function normalizeApiError(error) {
   return {
     success: false,
     status: 0,
-    message: error?.message || "Something went wrong.",
+    message:
+      error?.message || "Something went wrong.",
     errors: null,
     data: null,
   };

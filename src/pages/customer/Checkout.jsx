@@ -23,9 +23,7 @@ import {
   paymentMethods,
 } from "../../data/customer/profileData";
 
-import {
-  placeOrder as placeOrderApi,
-} from "../../api/customerApi";
+import useOrderStore from "../../store/customer/orderStore";
 
 import {
   useCart,
@@ -34,13 +32,12 @@ import {
 const Checkout = () => {
   const navigate = useNavigate();
 
-  const {
-    cartItems,
-    refreshCart,
-    selectedCoupon,
-    setSelectedCoupon,
-  } = useCart();
-
+const {
+  createOrder,
+  initiateCheckout,
+  verifyPayment,
+  loading,
+} = useOrderStore();
   const [selectedAddress, setSelectedAddress] =
     useState(
       addresses.find(
@@ -76,10 +73,7 @@ const Checkout = () => {
     );
   }, [selectedCoupon]);
 
-  const [
-    placingOrder,
-    setPlacingOrder,
-  ] = useState(false);
+
 
   const [
     deliveryType,
@@ -305,9 +299,7 @@ const Checkout = () => {
       }
 
       try {
-        setPlacingOrder(
-          true
-        );
+        
 
         const payload = {
           items:
@@ -360,9 +352,7 @@ const Checkout = () => {
           notes: "",
         };
 
-        await placeOrderApi(
-          payload
-        );
+        const response = await createOrder(payload);
 
         setSelectedCoupon(
           null
@@ -370,9 +360,12 @@ const Checkout = () => {
 
         await refreshCart();
 
-        navigate(
-          "/customer/orders"
-        );
+navigate(
+  `/customer/orders/${
+    response.order?._id ||
+    response.order?.id
+  }`
+);
       } catch (err) {
         console.error(
           err
@@ -385,9 +378,7 @@ const Checkout = () => {
             "Unable to place order."
         );
       } finally {
-        setPlacingOrder(
-          false
-        );
+        
       }
     };
 
@@ -576,9 +567,11 @@ const Checkout = () => {
               total={
                 orderSummary.total
               }
-              loading={
-                placingOrder
-              }
+             loading={
+  loading.createOrder ||
+  loading.checkout ||
+  loading.verifyPayment
+}
               disabled={
                 !selectedAddress ||
                 !selectedPayment ||

@@ -1,364 +1,418 @@
 import { create } from "zustand";
-import * as orderApi from "../api/customers/orderApi";
+import * as orderApi from "../../customer/orderApi";
 
 const initialLoadingState = {
   fetchOrders: false,
+  fetchOrder: false,
   createOrder: false,
   reorder: false,
+  cancelOrder: false,
   checkout: false,
   verifyPayment: false,
+  trackOrder: false,
   dineIn: false,
 };
 
-const useOrderStore = create((set, get) => ({
-  // State
-  orders: [],
-  currentOrder: null,
-  checkout: null,
-
-  cartItems: [],
-
-  loading: { ...initialLoadingState },
-
-  error: null,
-
-  // Utility Actions
-
-  clearError: () => set({ error: null }),
-
-  clearCurrentOrder: () => set({ currentOrder: null }),
-
-  reset: () =>
-    set({
-      orders: [],
-      currentOrder: null,
-      checkout: null,
-      cartItems: [],
-      loading: { ...initialLoadingState },
-      error: null,
-    }),
-
-  // Cart Actions
-
-  setCartItems: (items) => set({ cartItems: items }),
-
-  clearCartItems: () => set({ cartItems: [] }),
-
-  addCartItem: (item) =>
-    set((state) => {
-      const existing = state.cartItems.find(
-        (i) => i.productId === item.productId && i.variantId === item.variantId,
-      );
-
-      if (existing) {
-        return {
-          cartItems: state.cartItems.map((i) =>
-            i.productId === item.productId && i.variantId === item.variantId
-              ? {
-                  ...i,
-                  quantity: i.quantity + item.quantity,
-                }
-              : i,
-          ),
-        };
-      }
-
-      return {
-        cartItems: [...state.cartItems, item],
-      };
-    }),
-
-  updateCartItem: (productId, variantId, quantity) =>
+const useOrderStore = create((set, get) => {
+  const setLoading = (key, value) =>
     set((state) => ({
-      cartItems:
-        quantity <= 0
-          ? state.cartItems.filter(
-              (i) => !(i.productId === productId && i.variantId === variantId),
-            )
-          : state.cartItems.map((i) =>
-              i.productId === productId && i.variantId === variantId
+      loading: {
+        ...state.loading,
+        [key]: value,
+      },
+    }));
+
+  const setError = (error = null) => set({ error });
+
+  return {
+    /* -------------------------------------------------------------------------- */
+    /*                                   STATE                                    */
+    /* -------------------------------------------------------------------------- */
+
+    orders: [],
+    currentOrder: null,
+
+    checkoutSession: null,
+    tracking: null,
+
+    cartItems: [],
+
+    loading: { ...initialLoadingState },
+
+    error: null,
+
+    /* -------------------------------------------------------------------------- */
+    /*                                  HELPERS                                   */
+    /* -------------------------------------------------------------------------- */
+
+    clearError: () => setError(),
+
+    clearCurrentOrder: () =>
+      set({
+        currentOrder: null,
+        tracking: null,
+      }),
+
+    reset: () =>
+      set({
+        orders: [],
+        currentOrder: null,
+        checkoutSession: null,
+        tracking: null,
+        cartItems: [],
+        loading: { ...initialLoadingState },
+        error: null,
+      }),
+
+    /* -------------------------------------------------------------------------- */
+    /*                                CART ACTIONS                                */
+    /* -------------------------------------------------------------------------- */
+
+    setCartItems: (items) => set({ cartItems: items }),
+
+    clearCartItems: () => set({ cartItems: [] }),
+
+    addCartItem: (item) =>
+      set((state) => {
+        const existing = state.cartItems.find(
+          (i) =>
+            i.productId === item.productId &&
+            i.variantId === item.variantId
+        );
+
+        if (existing) {
+          return {
+            cartItems: state.cartItems.map((i) =>
+              i.productId === item.productId &&
+              i.variantId === item.variantId
                 ? {
                     ...i,
-                    quantity,
+                    quantity: i.quantity + item.quantity,
                   }
-                : i,
+                : i
             ),
-    })),
+          };
+        }
 
-  removeCartItem: (productId, variantId) =>
-    set((state) => ({
-      cartItems: state.cartItems.filter(
-        (i) => !(i.productId === productId && i.variantId === variantId),
+        return {
+          cartItems: [...state.cartItems, item],
+        };
+      }),
+
+    updateCartItem: (productId, variantId, quantity) =>
+      set((state) => ({
+        cartItems:
+          quantity <= 0
+            ? state.cartItems.filter(
+                (i) =>
+                  !(
+                    i.productId === productId &&
+                    i.variantId === variantId
+                  )
+              )
+            : state.cartItems.map((i) =>
+                i.productId === productId &&
+                i.variantId === variantId
+                  ? { ...i, quantity }
+                  : i
+              ),
+      })),
+
+    removeCartItem: (productId, variantId) =>
+      set((state) => ({
+        cartItems: state.cartItems.filter(
+          (i) =>
+            !(
+              i.productId === productId &&
+              i.variantId === variantId
+            )
+        ),
+      })),
+
+    getSubtotal: () =>
+      get().cartItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
       ),
-    })),
 
-  getSubtotal: () =>
-    get().cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    getTotalItems: () =>
+      get().cartItems.reduce(
+        (sum, item) => sum + item.quantity,
+        0
+      ),
 
-  getTotalItems: () =>
-    get().cartItems.reduce((sum, item) => sum + item.quantity, 0),
+    /* -------------------------------------------------------------------------- */
+    /*                              FETCH ORDERS                                  */
+    /* -------------------------------------------------------------------------- */
 
-  // Fetch Customer Orders
+    fetchOrders: async (params = {}) => {
+      setLoading("fetchOrders", true);
+      setError();
 
-  fetchOrders: async (params = {}) => {
-    set((state) => ({
-      loading: {
-        ...state.loading,
-        fetchOrders: true,
-      },
-      error: null,
-    }));
+      try {
+        const response =
+          await orderApi.getCustomerOrders(params);
 
-    try {
-      const response = await orderApi.getCustomerOrders(params);
+        set({
+          orders:
+            response?.orders ??
+            response?.data ??
+            [],
+        });
 
-      set((state) => ({
-        orders: response.orders || [],
-        loading: {
-          ...state.loading,
-          fetchOrders: false,
-        },
-      }));
+        return response;
+      } catch (error) {
+        setError(error);
+        throw error;
+      } finally {
+        setLoading("fetchOrders", false);
+      }
+    },
 
-      return response;
-    } catch (error) {
-      set((state) => ({
-        loading: {
-          ...state.loading,
-          fetchOrders: false,
-        },
-        error,
-      }));
+    fetchOrder: async (orderId) => {
+      setLoading("fetchOrder", true);
+      setError();
 
-      throw error;
-    }
-  },
+      try {
+        const response =
+          await orderApi.getCustomerOrder(orderId);
 
-  // Fetch Single Order
+        set({
+          currentOrder:
+            response?.order ??
+            response?.data ??
+            response,
+        });
 
-  fetchOrder: async (orderId) => {
-    try {
-      const response = await orderApi.getCustomerOrder(orderId);
+        return response;
+      } catch (error) {
+        setError(error);
+        throw error;
+      } finally {
+        setLoading("fetchOrder", false);
+      }
+    },
 
-      set({
-        currentOrder: response.order ?? response,
-      });
+    /* -------------------------------------------------------------------------- */
+    /*                               CREATE ORDER                                 */
+    /* -------------------------------------------------------------------------- */
 
-      return response;
-    } catch (error) {
-      set({ error });
-      throw error;
-    }
-  },
+    createOrder: async (payload) => {
+      setLoading("createOrder", true);
+      setError();
 
-  // Create Order
+      try {
+        const response =
+          await orderApi.createOrder(payload);
 
-  createOrder: async (payload) => {
-    set((state) => ({
-      loading: {
-        ...state.loading,
-        createOrder: true,
-      },
-      error: null,
-    }));
+        const order =
+          response?.order ??
+          response?.data;
 
-    try {
-      const response = await orderApi.createOrder(payload);
+        set((state) => ({
+          currentOrder: order,
+          orders: order
+            ? [order, ...state.orders]
+            : state.orders,
+        }));
 
-      set((state) => ({
-        currentOrder: response.order,
-        loading: {
-          ...state.loading,
-          createOrder: false,
-        },
-      }));
+        return response;
+      } catch (error) {
+        setError(error);
+        throw error;
+      } finally {
+        setLoading("createOrder", false);
+      }
+    },
 
-      return response;
-    } catch (error) {
-      set((state) => ({
-        loading: {
-          ...state.loading,
-          createOrder: false,
-        },
-        error,
-      }));
+    /* -------------------------------------------------------------------------- */
+    /*                                  REORDER                                   */
+    /* -------------------------------------------------------------------------- */
 
-      throw error;
-    }
-  },
+    reorder: async (payload) => {
+      setLoading("reorder", true);
+      setError();
 
-  // Reorder
+      try {
+        const response =
+          await orderApi.reorder(payload);
 
-  reorder: async (payload) => {
-    set((state) => ({
-      loading: {
-        ...state.loading,
-        reorder: true,
-      },
-      error: null,
-    }));
+        const order =
+          response?.order ??
+          response?.data;
 
-    try {
-      const response = await orderApi.reorder(payload);
+        set((state) => ({
+          currentOrder: order,
+          orders: order
+            ? [order, ...state.orders]
+            : state.orders,
+        }));
 
-      set((state) => ({
-        currentOrder: response.order,
-        loading: {
-          ...state.loading,
-          reorder: false,
-        },
-      }));
+        return response;
+      } catch (error) {
+        setError(error);
+        throw error;
+      } finally {
+        setLoading("reorder", false);
+      }
+    },
 
-      return response;
-    } catch (error) {
-      set((state) => ({
-        loading: {
-          ...state.loading,
-          reorder: false,
-        },
-        error,
-      }));
+    /* -------------------------------------------------------------------------- */
+    /*                              CANCEL ORDER                                  */
+    /* -------------------------------------------------------------------------- */
 
-      throw error;
-    }
-  },
+    cancelOrder: async (orderId) => {
+      setLoading("cancelOrder", true);
+      setError();
 
-  // Cancel Order
+      try {
+        const response =
+          await orderApi.cancelOrder(orderId);
 
-  cancelOrder: async (orderId) => {
-    try {
-      const response = await orderApi.cancelOrder(orderId);
+        set((state) => ({
+          orders: state.orders.map((order) =>
+            order._id === orderId ||
+            order.id === orderId
+              ? {
+                  ...order,
+                  delivery_status:
+                    "Cancelled",
+                  status:
+                    "Cancelled",
+                }
+              : order
+          ),
+        }));
 
-      await get().fetchOrders();
+        return response;
+      } catch (error) {
+        setError(error);
+        throw error;
+      } finally {
+        setLoading("cancelOrder", false);
+      }
+    },
 
-      return response;
-    } catch (error) {
-      set({ error });
-      throw error;
-    }
-  },
+    /* -------------------------------------------------------------------------- */
+    /*                               TRACK ORDER                                  */
+    /* -------------------------------------------------------------------------- */
 
-  // Track Order
+    trackOrder: async (orderId) => {
+      setLoading("trackOrder", true);
+      setError();
 
-  trackOrder: async (orderId) => {
-    return await orderApi.trackOrder(orderId);
-  },
+      try {
+        const response =
+          await orderApi.trackOrder(orderId);
 
-  // Checkout
+        set({
+          tracking:
+            response?.tracking ??
+            response?.data ??
+            response,
+        });
 
-  initiateCheckout: async (payload) => {
-    set((state) => ({
-      loading: {
-        ...state.loading,
-        checkout: true,
-      },
-      error: null,
-    }));
+        return response;
+      } catch (error) {
+        setError(error);
+        throw error;
+      } finally {
+        setLoading("trackOrder", false);
+      }
+    },
 
-    try {
-      const response = await orderApi.initiateCheckout(payload);
+    /* -------------------------------------------------------------------------- */
+    /*                                CHECKOUT                                    */
+    /* -------------------------------------------------------------------------- */
 
-      set((state) => ({
-        checkout: response,
-        loading: {
-          ...state.loading,
-          checkout: false,
-        },
-      }));
+    initiateCheckout: async (payload) => {
+      setLoading("checkout", true);
+      setError();
 
-      return response;
-    } catch (error) {
-      set((state) => ({
-        loading: {
-          ...state.loading,
-          checkout: false,
-        },
-        error,
-      }));
+      try {
+        const response =
+          await orderApi.initiateCheckout(payload);
 
-      throw error;
-    }
-  },
+        set({
+          checkoutSession: response,
+        });
 
-  // Verify Payment
+        return response;
+      } catch (error) {
+        setError(error);
+        throw error;
+      } finally {
+        setLoading("checkout", false);
+      }
+    },
 
-  verifyPayment: async (payload) => {
-    set((state) => ({
-      loading: {
-        ...state.loading,
-        verifyPayment: true,
-      },
-      error: null,
-    }));
+    verifyPayment: async (payload) => {
+      setLoading("verifyPayment", true);
+      setError();
 
-    try {
-      const response = await orderApi.verifyCheckout(payload);
+      try {
+        return await orderApi.verifyCheckout(payload);
+      } catch (error) {
+        setError(error);
+        throw error;
+      } finally {
+        setLoading("verifyPayment", false);
+      }
+    },
 
-      set((state) => ({
-        loading: {
-          ...state.loading,
-          verifyPayment: false,
-        },
-      }));
+    /* -------------------------------------------------------------------------- */
+    /*                                  DINE-IN                                   */
+    /* -------------------------------------------------------------------------- */
 
-      return response;
-    } catch (error) {
-      set((state) => ({
-        loading: {
-          ...state.loading,
-          verifyPayment: false,
-        },
-        error,
-      }));
+    createDineInOrder: async (payload) => {
+      setLoading("dineIn", true);
+      setError();
 
-      throw error;
-    }
-  },
+      try {
+        const response =
+          await orderApi.createDineInOrder(payload);
 
-  // Dine-In Order
+        const order =
+          response?.order ??
+          response?.data;
 
-  createDineInOrder: async (payload) => {
-    set((state) => ({
-      loading: {
-        ...state.loading,
-        dineIn: true,
-      },
-      error: null,
-    }));
+        set((state) => ({
+          currentOrder: order,
+          orders: order
+            ? [order, ...state.orders]
+            : state.orders,
+        }));
 
-    try {
-      const response = await orderApi.createDineInOrder(payload);
+        return response;
+      } catch (error) {
+        setError(error);
+        throw error;
+      } finally {
+        setLoading("dineIn", false);
+      }
+    },
 
-      set((state) => ({
-        currentOrder: response.order,
-        loading: {
-          ...state.loading,
-          dineIn: false,
-        },
-      }));
+    /* -------------------------------------------------------------------------- */
+    /*                                  GETTERS                                   */
+    /* -------------------------------------------------------------------------- */
 
-      return response;
-    } catch (error) {
-      set((state) => ({
-        loading: {
-          ...state.loading,
-          dineIn: false,
-        },
-        error,
-      }));
+    getCurrentOrders: () =>
+      get().orders.filter(
+        (order) =>
+          !["Delivered", "Cancelled"].includes(
+            order.delivery_status ??
+              order.status
+          )
+      ),
 
-      throw error;
-    }
-  },
-  getCurrentOrders: () =>
-    get().orders.filter(
-      (order) => !["Delivered", "Cancelled"].includes(order.delivery_status),
-    ),
-
-  getOrderHistory: () =>
-    get().orders.filter((order) =>
-      ["Delivered", "Cancelled"].includes(order.delivery_status),
-    ),
-}));
+    getOrderHistory: () =>
+      get().orders.filter((order) =>
+        ["Delivered", "Cancelled"].includes(
+          order.delivery_status ??
+            order.status
+        )
+      ),
+  };
+});
 
 export default useOrderStore;
