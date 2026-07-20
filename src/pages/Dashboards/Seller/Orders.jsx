@@ -13,9 +13,11 @@ import BulkActions from "../../../components/orders/BulkActions";
 import ExportModal from "../../../components/orders/ExportModal";
 import AssignDeliveryModal from "../../../components/delivery/AssignDeliveryModal";
 
-// Local data + store
-import deliveryBoyData from "../../../data/deliveryBoyData";
+// Store
 import useOrderStore from "../../../store/orderStore";
+import useDeliveryBoyStore from "../../../store/deliveryBoyStore";
+
+// const INK = "#1A4D2E";
 
 export default function Orders() {
   const {
@@ -27,6 +29,14 @@ export default function Orders() {
     deleteOrder,
     assignOrder,
   } = useOrderStore();
+
+  const { deliveryBoys, fetchDeliveryBoys } = useDeliveryBoyStore();
+
+  // Only delivery boys currently marked available get offered for assignment
+  const availableDeliveryBoys = useMemo(
+    () => (deliveryBoys || []).filter((boy) => boy.is_available),
+    [deliveryBoys],
+  );
 
   // ==========================
   // Normalize backend order shape -> shape the UI expects
@@ -81,15 +91,12 @@ export default function Orders() {
   const [assignModal, setAssignModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  // Delivery boys — local/mock data
-  const [deliveryBoys, setDeliveryBoys] = useState(() => {
-    const saved = JSON.parse(localStorage.getItem("deliveryBoys"));
-    return saved && saved.length > 0 ? saved : deliveryBoyData;
-  });
-
+  // Fetch real delivery boys (GET /deliveryBoy/list) on mount
   useEffect(() => {
-    localStorage.setItem("deliveryBoys", JSON.stringify(deliveryBoys));
-  }, [deliveryBoys]);
+    fetchDeliveryBoys().catch((err) =>
+      console.error("Failed to fetch delivery boys:", err),
+    );
+  }, [fetchDeliveryBoys]);
 
   useEffect(() => {
     let isMounted = true;
@@ -263,19 +270,11 @@ export default function Orders() {
   };
 
   const handleAssignDelivery = async (boyId) => {
-    const boy = deliveryBoys.find((item) => item.id === boyId || item._id === boyId);
+    const boy = deliveryBoys.find((item) => item._id === boyId || item.id === boyId);
     if (!boy || !selectedOrder) return;
 
     try {
       await assignOrder(selectedOrder.id, boyId);
-
-      setDeliveryBoys((prev) =>
-        prev.map((item) =>
-          (item.id === boyId || item._id === boyId)
-            ? { ...item, assignedOrders: (item.assignedOrders || 0) + 1 }
-            : item,
-        ),
-      );
 
       setAssignModal(false);
       setSelectedOrder(null);
@@ -325,7 +324,7 @@ export default function Orders() {
       transition={{ duration: 0.4 }}
       className="space-y-6"
     >
-      <div className="space-y-8">
+      <div className="space-y-6">
         <OrdersHeader
           totalOrders={normalizedOrders.length}
           boardView={boardView}
@@ -335,7 +334,7 @@ export default function Orders() {
         />
 
         {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
             {error}
           </div>
         )}
@@ -349,17 +348,19 @@ export default function Orders() {
           completedOrders={completedOrdersCount}
         />
 
-        <OrderFilters
-          search={search}
-          setSearch={setSearch}
-          status={status}
-          setStatus={setStatus}
-          payment={payment}
-          setPayment={setPayment}
-          sort={sort}
-          setSort={setSort}
-          onReset={handleReset}
-        />
+        <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <OrderFilters
+            search={search}
+            setSearch={setSearch}
+            status={status}
+            setStatus={setStatus}
+            payment={payment}
+            setPayment={setPayment}
+            sort={sort}
+            setSort={setSort}
+            onReset={handleReset}
+          />
+        </div>
 
         <BulkActions
           selectedCount={selectedOrders.length}
@@ -373,8 +374,8 @@ export default function Orders() {
         />
 
         {isLoading && normalizedOrders.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white py-16 text-center text-slate-500 font-medium">
-            Loading orders...
+          <div className="rounded-2xl border border-black/5 bg-white py-16 text-center text-sm text-slate-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            Loading orders…
           </div>
         ) : (
           <>
@@ -424,7 +425,7 @@ export default function Orders() {
           isOpen={assignModal}
           onClose={() => setAssignModal(false)}
           order={selectedOrder}
-          deliveryBoys={deliveryBoys.filter((boy) => boy.status === "Online")}
+          deliveryBoys={availableDeliveryBoys}
           onAssign={handleAssignDelivery}
         />
       </div>
