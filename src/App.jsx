@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 // Auth
 
 import Login from "./pages/Auth/Login";
+import ForgotPin from "./pages/Auth/ForgotPin";
 import RegisterSeller from "./pages/Auth/RegisterSeller";
 import RegisterSuccess from "./pages/Auth/RegisterSuccess";
 
@@ -61,6 +62,7 @@ import PolicyDetail from "./pages/customer/PolicyDetail";
 import PrivacySecurity from "./pages/customer/PrivacySecurity";
 import Favourites from "./pages/customer/Favourites";
 import Notifications from "./pages/customer/Notifications";
+import CustomerRegister from "./pages/Auth/CustomerRegister";
 export default function App() {
   return (
     <div
@@ -72,20 +74,22 @@ export default function App() {
         p-0
         box-border
         overflow-x-hidden
-      "
-    >
+      ">
       <Routes>
         {/* Default */}
 
-        <Route path="/" element={<Navigate to="/customer" replace />} />
+        <Route path="/" element={<Navigate to="/auth/login" replace />} />
 
         {/* Authentication */}
 
-        <Route path="/seller/login" element={<Login />} />
+        <Route path="/auth/login" element={<Login />} />
+
+        <Route path="/auth/forgot-pin" element={<ForgotPin />} />
 
         <Route path="/seller/register" element={<RegisterSeller />} />
+        <Route path="/customer/register" element={<CustomerRegister />} />
 
-        <Route path="/seller/register-success" element={<RegisterSuccess />} />
+        <Route path="/auth/register-success" element={<RegisterSuccess />} />
 
         {/* ======================
             CUSTOMER APP
@@ -131,7 +135,6 @@ export default function App() {
             element={<PrivacySecurity />}
           />
 
-
           <Route path="profile/terms-policy" element={<TermsPolicy />} />
         </Route>
 
@@ -145,8 +148,7 @@ export default function App() {
             <FestiveMenuProvider>
               <DashboardLayout />
             </FestiveMenuProvider>
-          }
-        >
+          }>
           <Route index element={<Navigate to="dashboard" replace />} />
 
           <Route path="dashboard" element={<SellerDashboard />} />
@@ -198,8 +200,7 @@ export default function App() {
                 items-center
                 justify-center
                 p-4
-              "
-            >
+              ">
               <div
                 className="
                   bg-white
@@ -212,15 +213,13 @@ export default function App() {
                   border
                   border-emerald-100
                   shadow-xl
-                "
-              >
+                ">
                 <h3
                   className="
                     text-lg
                     font-black
                     text-slate-900
-                  "
-                >
+                  ">
                   Registration Successful!
                 </h3>
 
@@ -238,8 +237,7 @@ export default function App() {
                     py-2.5
                     rounded-xl
                     font-black
-                  "
-                >
+                  ">
                   Go To Storefront Market
                 </a>
               </div>

@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useState, useEffect } from "react";
 import API from "../api/axios";
 
-const AuthContext = createContext(null);
+export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
@@ -9,27 +9,19 @@ export const AuthProvider = ({ children }) => {
     return savedUser ? JSON.parse(savedUser) : null;
   });
 
-  const [token, setToken] = useState(
-    localStorage.getItem("token") || null
-  );
-
-  const [authLoading, setAuthLoading] = useState(true);
+  const [token, setToken] = useState(localStorage.getItem("token") || null);
 
   useEffect(() => {
     if (token) {
       localStorage.setItem("token", token);
 
-      API.defaults.headers.common[
-        "Authorization"
-      ] = `Bearer ${token}`;
+      API.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     } else {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
 
       delete API.defaults.headers.common.Authorization;
     }
-
-    setAuthLoading(false);
   }, [token]);
 
   // =========================
@@ -61,7 +53,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const registerSellerSessionEngine = async (payload) => {
-    const res = await API.post('/auth/register/seller', payload);
+    const res = await API.post("/auth/register/seller", payload);
     if (res.data?.token) {
       setToken(res.data.token);
       setUser(res.data.user);
@@ -77,14 +69,20 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setToken(null);
     setUser(null);
-    localStorage.removeItem('token');
+    localStorage.removeItem("token");
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loginSessionEngine, registerSellerSessionEngine, logout, authLoading }}>
-      {!authLoading && children}
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        login,
+        loginSessionEngine,
+        registerSellerSessionEngine,
+        logout,
+      }}>
+      {children}
     </AuthContext.Provider>
   );
 };
-
-export const useAuth = () => useContext(AuthContext);

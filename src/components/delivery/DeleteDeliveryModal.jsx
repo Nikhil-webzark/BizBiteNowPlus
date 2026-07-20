@@ -1,51 +1,45 @@
-import React from "react";
-
 export default function DeleteDeliveryModal({
   isOpen,
   onClose,
   onDelete,
   deliveryBoy,
+  deleting = false,
 }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
-
-        <h2 className="text-2xl font-bold text-red-600 mb-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <h2 className="text-lg font-semibold text-red-600">
           Delete Delivery Boy
         </h2>
 
-        <p className="text-gray-600 mb-6">
-          Are you sure you want to delete
-          <span className="font-bold">
-            {" "}
+        <p className="mt-3 text-sm text-slate-600">
+          Are you sure you want to remove{" "}
+          <span className="font-medium text-slate-900">
             {deliveryBoy?.name}
           </span>
-          ?
+          ? This can't be undone.
         </p>
 
-        <div className="flex justify-end gap-3">
-
+        <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
+            disabled={deleting}
+            className="rounded-xl bg-slate-100 px-5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
           </button>
 
           <button
             onClick={onDelete}
-            className="px-5 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+            disabled={deleting}
+            className="rounded-xl bg-red-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            Delete
+            {deleting ? "Deleting..." : "Delete"}
           </button>
-
         </div>
-
       </div>
-
     </div>
   );
 }

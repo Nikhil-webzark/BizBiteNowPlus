@@ -12,10 +12,21 @@ const API = axios.create({
   },
 });
 
+// Reads the token from the Zustand-persisted auth store (see src/store/authStore.js),
+// avoiding a circular import while keeping a single source of truth for the token.
+function getStoredToken() {
+  try {
+    const raw = localStorage.getItem("bizbite-auth");
+    return raw ? JSON.parse(raw)?.state?.token || null : null;
+  } catch {
+    return null;
+  }
+}
+
 // Request Interceptor
 API.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    const token = getStoredToken();
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -31,9 +42,7 @@ API.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      localStorage.removeItem("role");
+      localStorage.removeItem("bizbite-auth");
     }
 
     return Promise.reject(error);

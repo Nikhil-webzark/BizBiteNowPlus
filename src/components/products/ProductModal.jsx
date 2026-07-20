@@ -1,29 +1,20 @@
 import {
   X,
   UploadCloud,
-  Plus,
   Trash2,
   Settings2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-export default function ProductModal({
-  open,
-  onClose,
-  mode = "add",
-  product = null,
-  onSave,
-  products = [],
-}) {
 const emptyForm = {
-  id: Date.now(),
+  id: null,
   sku: "",
   name: "",
   description: "",
   category: "",
   price: "",
   stock: "",
-  image: "",
+  image: "", // File instance (new upload) or existing image URL string (edit mode)
 
   available: true,
   featured: false,
@@ -36,7 +27,62 @@ const emptyForm = {
 
   ingredients: [],
 };
-  const [formData, setFormData] = useState(emptyForm);
+
+const buildFormData = (mode, product) => {
+  if (mode === "edit" && product) {
+    return {
+      id: product.id,
+      _id: product._id,
+      sku: product.sku || "",
+      name: product.name || "",
+      description: product.description || "",
+      category: product.category || "",
+      price: product.price || "",
+      stock: product.stock || "",
+      image: product.image || "", // existing image URL string
+      available: product.available ?? true,
+      featured: product.featured ?? false,
+      combo: product.combo ?? false,
+      delivery: product.delivery ?? true,
+      variants: product.variants || [],
+      addons: product.addons || [],
+    };
+  }
+
+  return { ...emptyForm, id: Date.now() };
+};
+
+export default function ProductModal({
+  open,
+  onClose,
+  mode = "add",
+  product = null,
+  onSave,
+  products = [],
+  saving = false,
+}) {
+  // NOTE: the parent passes a `key` prop keyed on mode + product id, so this
+  // component remounts (and formData/imagePreview re-initialize fresh)
+  // whenever the target product/mode changes, instead of syncing state from
+  // props via an effect.
+  const [formData, setFormData] = useState(() => buildFormData(mode, product));
+
+  // Image preview: initialized once per mount (existing image URL string in
+  // edit mode, empty for add mode). Updated only inside the file-input
+  // change handler below — never computed during render — since creating an
+  // object URL is a real side effect.
+  const [imagePreview, setImagePreview] = useState(() =>
+    typeof formData.image === "string" ? formData.image : "",
+  );
+  const objectUrlRef = useRef(null);
+
+  // Revoke any outstanding object URL when the modal unmounts.
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    };
+  }, []);
+
   const generateSKU = (category) => {
     const categoryMap = {
       Burger: "BRG",
@@ -78,32 +124,6 @@ const emptyForm = {
     return `${prefix}-${String(count).padStart(3, "0")}`;
   };
 
-  useEffect(() => {
-    if (!open) return;
-
-    if (mode === "edit" && product) {
-      setFormData({
-        id: product.id,
-        sku: product.sku || "",
-        name: product.name || "",
-        description: product.description || "",
-        category: product.category || "",
-        price: product.price || "",
-        stock: product.stock || "",
-        image: product.image || "",
-        available: product.available ?? true,
-        featured: product.featured ?? false,
-        combo: product.combo ?? false,
-        delivery: product.delivery ?? true,
-      });
-    } else {
-      setFormData({
-        ...emptyForm,
-        id: Date.now(),
-      });
-    }
-  }, [open, mode, product]);
-
   if (!open) return null;
 
   const handleChange = (e) => {
@@ -115,165 +135,157 @@ const emptyForm = {
     }));
   };
 
+  // Keep the raw File so it can be sent as multipart/form-data, instead of
+  // converting to a base64 data URL. Object URL creation/cleanup happens
+  // here, in the event handler — not during render.
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
 
     if (!file) return;
 
-    const reader = new FileReader();
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image must be under 5MB.");
+      return;
+    }
 
-    reader.onloadend = () => {
-      setFormData((prev) => ({
-        ...prev,
-        image: reader.result,
-      }));
-    };
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+    }
 
-    reader.readAsDataURL(file);
+    const url = URL.createObjectURL(file);
+    objectUrlRef.current = url;
+
+    setFormData((prev) => ({
+      ...prev,
+      image: file,
+    }));
+    setImagePreview(url);
   };
-const addVariant = () => {
-  setFormData((prev) => ({
-    ...prev,
-    variants: [
-      ...prev.variants,
-      {
-        id: Date.now(),
-        name: "",
-        price: 0,
-      },
-    ],
-  }));
-};
+  const addVariant = () => {
+    setFormData((prev) => ({
+      ...prev,
+      variants: [
+        ...prev.variants,
+        {
+          id: Date.now(),
+          name: "",
+          price: 0,
+        },
+      ],
+    }));
+  };
 
-const updateVariant = (id, field, value) => {
-  setFormData((prev) => ({
-    ...prev,
-    variants: prev.variants.map((variant) =>
-      variant.id === id
-        ? { ...variant, [field]: value }
-        : variant
-    ),
-  }));
-};
+  const updateVariant = (id, field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      variants: prev.variants.map((variant) =>
+        variant.id === id
+          ? { ...variant, [field]: value }
+          : variant
+      ),
+    }));
+  };
 
-const removeVariant = (id) => {
-  setFormData((prev) => ({
-    ...prev,
-    variants: prev.variants.filter(
-      (variant) => variant.id !== id
-    ),
-  }));
-};
-const addAddon = () => {
-  setFormData((prev) => ({
-    ...prev,
-    addons: [
-      ...prev.addons,
-      {
-        id: Date.now(),
-        name: "",
-        description: "",
-        price: "",
-      },
-    ],
-  }));
-};
+  const removeVariant = (id) => {
+    setFormData((prev) => ({
+      ...prev,
+      variants: prev.variants.filter(
+        (variant) => variant.id !== id
+      ),
+    }));
+  };
+  const addAddon = () => {
+    setFormData((prev) => ({
+      ...prev,
+      addons: [
+        ...prev.addons,
+        {
+          id: Date.now(),
+          name: "",
+          description: "",
+          price: "",
+        },
+      ],
+    }));
+  };
 
-const updateAddon = (addonId, field, value) => {
-  setFormData((prev) => ({
-    ...prev,
-    addons: prev.addons.map((addon) =>
-      addon.id === addonId
-        ? {
+  const updateAddon = (addonId, field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      addons: prev.addons.map((addon) =>
+        addon.id === addonId
+          ? {
             ...addon,
             [field]: value,
           }
-        : addon
-    ),
-  }));
-};
-
-const removeAddon = (addonId) => {
-  setFormData((prev) => ({
-    ...prev,
-    addons: prev.addons.filter(
-      (addon) => addon.id !== addonId
-    ),
-  }));
-};
-  const handleReset = () => {
-    if (mode === "edit" && product) {
-      setFormData({
-        id: product.id,
-        sku: product.sku || "",
-        name: product.name || "",
-        description: product.description || "",
-        category: product.category || "",
-        price: product.price || "",
-        stock: product.stock || "",
-        image: product.image || "",
-        available: product.available ?? true,
-        featured: product.featured ?? false,
-        combo: product.combo ?? false,
-        delivery: product.delivery ?? true,
-      });
-    } else {
-      setFormData({
-        ...emptyForm,
-        id: Date.now(),
-      });
-    }
-  };
-const handleSubmit = (e) => {
-  e.preventDefault();
-
-  if (!formData.name || !formData.category || !formData.price) {
-    alert("Please fill all required fields.");
-    return;
-  }
-
-  const cleanedVariants = formData.variants
-    .filter((group) => group.name.trim())
-    .map((group) => ({
-      ...group,
-      options: group.options.filter(
-        (option) => option.name.trim()
+          : addon
       ),
-    }))
-    .filter((group) => group.options.length);
-
-  const cleanedAddons = formData.addons.filter(
-    (addon) =>
-      addon.name.trim() &&
-      addon.price !== "" &&
-      addon.price !== null
-  );
-
-  const productData = {
-    ...formData,
-
-    sku:
-      mode === "edit"
-        ? formData.sku
-        : generateSKU(formData.category),
-
-    price: Number(formData.price),
-
-    variants: cleanedVariants,
-
-    addons: cleanedAddons,
+    }));
   };
 
-  onSave(productData);
-  onClose();
-};
+  const removeAddon = (addonId) => {
+    setFormData((prev) => ({
+      ...prev,
+      addons: prev.addons.filter(
+        (addon) => addon.id !== addonId
+      ),
+    }));
+  };
+  const handleReset = () => {
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+
+    const fresh = buildFormData(mode, product);
+    setFormData(fresh);
+    setImagePreview(typeof fresh.image === "string" ? fresh.image : "");
+  };
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    if (saving) return;
+
+    if (!formData.name || !formData.category || !formData.price) {
+      alert("Please fill all required fields.");
+      return;
+    }
+
+    const cleanedVariants = formData.variants.filter((v) => v.name?.trim());
+
+    const cleanedAddons = formData.addons.filter(
+      (addon) =>
+        addon.name?.trim() &&
+        addon.price !== "" &&
+        addon.price !== null
+    );
+
+    const productData = {
+      ...formData,
+
+      sku:
+        mode === "edit"
+          ? formData.sku
+          : generateSKU(formData.category),
+
+      price: Number(formData.price),
+
+      variants: cleanedVariants,
+
+      addons: cleanedAddons,
+    };
+
+    // onSave handles the actual create/update API call (POST /product/add
+    // or PUT /product/update/:id) and closes the modal once it succeeds.
+    onSave(productData);
+  };
 
   return (
     <>
       {/* Overlay */}
 
       <div
-        onClick={onClose}
+        onClick={saving ? undefined : onClose}
         className="fixed inset-0 z-40 bg-black/40 h-fullbackdrop-blur-sm"
       />
 
@@ -295,7 +307,8 @@ const handleSubmit = (e) => {
 
           <button
             onClick={onClose}
-            className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 transition hover:bg-slate-100"
+            disabled={saving}
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <X size={20} />
           </button>
@@ -332,25 +345,6 @@ const handleSubmit = (e) => {
                     className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-[#16522D] focus:ring-4 focus:ring-[#16522D]/10"
                   />
                 </div>
-
-                {/* SKU */}
-
-                {/* <div className="mb-5">
-
-      <label className="mb-2 block text-sm font-medium text-slate-700">
-        SKU
-      </label>
-
-      <input
-        type="text"
-        name="sku"
-        value={formData.sku}
-        onChange={handleChange}
-        placeholder="BURG-001"
-        className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-[#16522D] focus:ring-4 focus:ring-[#16522D]/10"
-      />
-
-    </div> */}
 
                 {/* Category */}
 
@@ -461,221 +455,204 @@ const handleSubmit = (e) => {
                       />
                     </div>
                   </div>
-
-                  {/* <div>
-
-        <label className="mb-2 block text-sm font-medium text-slate-700">
-          Stock
-        </label>
-
-        <input
-          type="number"
-          name="stock"
-          value={formData.stock}
-          onChange={handleChange}
-          placeholder="50"
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-[#16522D] focus:ring-4 focus:ring-[#16522D]/10"
-        />
-
-      </div> */}
                 </div>
               </div>
             </div>
 
             {/* ===================== VARIANTS ===================== */}
-<div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-  <div className="mb-6 flex items-center justify-between">
-    <div className="flex items-center gap-3">
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#16522D]/10">
-        <Settings2
-          size={20}
-          className="text-[#16522D]"
-        />
-      </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-6 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#16522D]/10">
+                    <Settings2
+                      size={20}
+                      className="text-[#16522D]"
+                    />
+                  </div>
 
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900">
-          Product Sizes
-        </h3>
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      Product Sizes
+                    </h3>
 
-        <p className="text-sm text-slate-500">
-          Add available sizes for this product.
-        </p>
-      </div>
-    </div>
+                    <p className="text-sm text-slate-500">
+                      Add available sizes for this product.
+                    </p>
+                  </div>
+                </div>
 
-    <button
-      type="button"
-      onClick={addVariant}
-      className="rounded-xl bg-[#16522D] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#114125]"
-    >
-      + Add Size
-    </button>
-  </div>
+                <button
+                  type="button"
+                  onClick={addVariant}
+                  className="rounded-xl bg-[#16522D] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#114125]"
+                >
+                  + Add Size
+                </button>
+              </div>
 
-  <div className="space-y-4">
-    {formData.variants.length === 0 && (
-      <div className="rounded-xl border border-dashed border-slate-300 py-10 text-center text-slate-400">
-        No sizes added yet.
-      </div>
-    )}
+              <div className="space-y-4">
+                {formData.variants.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-slate-300 py-10 text-center text-slate-400">
+                    No sizes added yet.
+                  </div>
+                )}
 
-    {formData.variants.map((variant) => (
-      <div
-        key={variant.id}
-        className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-[1fr_150px_50px]"
-      >
-        <input
-          type="text"
-          placeholder="Size (Small, Medium, Large)"
-          value={variant.name}
-          onChange={(e) =>
-            updateVariant(
-              variant.id,
-              "name",
-              e.target.value
-            )
-          }
-          className="rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-[#16522D]"
-        />
+                {formData.variants.map((variant) => (
+                  <div
+                    key={variant.id}
+                    className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-[1fr_150px_50px]"
+                  >
+                    <input
+                      type="text"
+                      placeholder="Size (Small, Medium, Large)"
+                      value={variant.name}
+                      onChange={(e) =>
+                        updateVariant(
+                          variant.id,
+                          "name",
+                          e.target.value
+                        )
+                      }
+                      className="rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-[#16522D]"
+                    />
 
-        <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2">
-            ₹
-          </span>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2">
+                        ₹
+                      </span>
 
-          <input
-            type="number"
-            placeholder="Extra Price"
-            value={variant.price}
-            onChange={(e) =>
-              updateVariant(
-                variant.id,
-                "price",
-                Number(e.target.value)
-              )
-            }
-            className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4 outline-none transition focus:border-[#16522D]"
-          />
-        </div>
+                      <input
+                        type="number"
+                        placeholder="Extra Price"
+                        value={variant.price}
+                        onChange={(e) =>
+                          updateVariant(
+                            variant.id,
+                            "price",
+                            Number(e.target.value)
+                          )
+                        }
+                        className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4 outline-none transition focus:border-[#16522D]"
+                      />
+                    </div>
 
-        <button
-          type="button"
-          onClick={() => removeVariant(variant.id)}
-          className="flex h-12 w-12 items-center justify-center rounded-xl border border-red-200 text-red-500 transition hover:bg-red-50"
-        >
-          <Trash2 size={18} />
-        </button>
-      </div>
-    ))}
-  </div>
-</div>
-{/* ================= ADDONS ================= */}
+                    <button
+                      type="button"
+                      onClick={() => removeVariant(variant.id)}
+                      className="flex h-12 w-12 items-center justify-center rounded-xl border border-red-200 text-red-500 transition hover:bg-red-50"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* ================= ADDONS ================= */}
 
-<div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-  <div className="mb-6 flex items-center justify-between">
-    <div>
-      <h3 className="text-lg font-semibold text-slate-900">
-        Product Add-ons
-      </h3>
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">
+                    Product Add-ons
+                  </h3>
 
-      <p className="text-sm text-slate-500">
-        Extra cheese, sauces, drinks, toppings...
-      </p>
-    </div>
+                  <p className="text-sm text-slate-500">
+                    Extra cheese, sauces, drinks, toppings...
+                  </p>
+                </div>
 
-    <button
-      type="button"
-      onClick={addAddon}
-      className="rounded-xl bg-[#16522D] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#114125]"
-    >
-      + Add Add-on
-    </button>
-  </div>
+                <button
+                  type="button"
+                  onClick={addAddon}
+                  className="rounded-xl bg-[#16522D] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#114125]"
+                >
+                  + Add Add-on
+                </button>
+              </div>
 
-  <div className="space-y-4">
+              <div className="space-y-4">
 
-    {formData.addons.length === 0 && (
-      <div className="rounded-xl border border-dashed border-slate-300 py-8 text-center text-slate-400">
-        No add-ons created yet.
-      </div>
-    )}
+                {formData.addons.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-slate-300 py-8 text-center text-slate-400">
+                    No add-ons created yet.
+                  </div>
+                )}
 
-    {formData.addons.map((addon) => (
+                {formData.addons.map((addon) => (
 
-      <div
-        key={addon.id}
-        className="rounded-xl border border-slate-200 bg-slate-50 p-4"
-      >
+                  <div
+                    key={addon.id}
+                    className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                  >
 
-        <div className="grid gap-4 lg:grid-cols-[1fr_1fr_160px_50px]">
+                    <div className="grid gap-4 lg:grid-cols-[1fr_1fr_160px_50px]">
 
-          <input
-            type="text"
-            placeholder="Addon Name"
-            value={addon.name}
-            onChange={(e)=>
-              updateAddon(
-                addon.id,
-                "name",
-                e.target.value
-              )
-            }
-            className="rounded-xl border border-slate-300 px-4 py-3"
-          />
+                      <input
+                        type="text"
+                        placeholder="Addon Name"
+                        value={addon.name}
+                        onChange={(e) =>
+                          updateAddon(
+                            addon.id,
+                            "name",
+                            e.target.value
+                          )
+                        }
+                        className="rounded-xl border border-slate-300 px-4 py-3"
+                      />
 
-          <input
-            type="text"
-            placeholder="Description"
-            value={addon.description}
-            onChange={(e)=>
-              updateAddon(
-                addon.id,
-                "description",
-                e.target.value
-              )
-            }
-            className="rounded-xl border border-slate-300 px-4 py-3"
-          />
+                      <input
+                        type="text"
+                        placeholder="Description"
+                        value={addon.description}
+                        onChange={(e) =>
+                          updateAddon(
+                            addon.id,
+                            "description",
+                            e.target.value
+                          )
+                        }
+                        className="rounded-xl border border-slate-300 px-4 py-3"
+                      />
 
-          <div className="relative">
+                      <div className="relative">
 
-            <span className="absolute left-4 top-1/2 -translate-y-1/2">
-              ₹
-            </span>
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2">
+                          ₹
+                        </span>
 
-            <input
-              type="number"
-              value={addon.price}
-              onChange={(e)=>
-                updateAddon(
-                  addon.id,
-                  "price",
-                  e.target.value
-                )
-              }
-              className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4"
-            />
+                        <input
+                          type="number"
+                          value={addon.price}
+                          onChange={(e) =>
+                            updateAddon(
+                              addon.id,
+                              "price",
+                              e.target.value
+                            )
+                          }
+                          className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4"
+                        />
 
-          </div>
+                      </div>
 
-          <button
-            type="button"
-            onClick={()=>removeAddon(addon.id)}
-            className="flex h-12 w-12 items-center justify-center rounded-xl border border-red-200 text-red-500 hover:bg-red-50"
-          >
-            <Trash2 size={18}/>
-          </button>
+                      <button
+                        type="button"
+                        onClick={() => removeAddon(addon.id)}
+                        className="flex h-12 w-12 items-center justify-center rounded-xl border border-red-200 text-red-500 hover:bg-red-50"
+                      >
+                        <Trash2 size={18} />
+                      </button>
 
-        </div>
+                    </div>
 
-      </div>
+                  </div>
 
-    ))}
+                ))}
 
-  </div>
+              </div>
 
-</div>
+            </div>
 
 
             <div className="space-y-6">
@@ -712,9 +689,9 @@ const handleSubmit = (e) => {
                 </label>
 
                 <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
-                  {formData.image ? (
+                  {imagePreview ? (
                     <img
-                      src={formData.image}
+                      src={imagePreview}
                       alt="Preview"
                       className="aspect-square w-full object-cover"
                     />
@@ -843,7 +820,8 @@ const handleSubmit = (e) => {
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                  disabled={saving}
+                  className="rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -851,16 +829,24 @@ const handleSubmit = (e) => {
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="rounded-xl border border-slate-300 bg-slate-50 px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                  disabled={saving}
+                  className="rounded-xl border border-slate-300 bg-slate-50 px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Reset
                 </button>
 
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#16522D] px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-[#16522D]/20 transition hover:bg-[#114125]"
+                  disabled={saving}
+                  className="rounded-xl bg-[#16522D] px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-[#16522D]/20 transition hover:bg-[#114125] disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {mode === "add" ? "Save Product" : "Update Product"}
+                  {saving
+                    ? mode === "add"
+                      ? "Saving..."
+                      : "Updating..."
+                    : mode === "add"
+                      ? "Save Product"
+                      : "Update Product"}
                 </button>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import ProductsHeader from "../../../components/products/ProductsHeader";
 import ProductStats from "../../../components/products/ProductStats";
@@ -8,9 +8,19 @@ import ProductDrawer from "../../../components/products/ProductDrawer";
 import ProductModal from "../../../components/products/ProductModal";
 import DeleteProductModal from "../../../components/products/DeleteProductModal";
 import { motion } from "framer-motion";
-import { products } from "../../../data/productsData.js";
+import useProductStore from "../../../store/productStore";
 
 export default function Products() {
+  const {
+    products: productList,
+    loading,
+    error,
+    fetchDashboardProducts,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+  } = useProductStore();
+
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [status, setStatus] = useState("All");
@@ -24,7 +34,19 @@ export default function Products() {
 
   const [modalMode, setModalMode] = useState("add");
 
-  const [productList, setProductList] = useState(products);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // =========================
+  // Load products from backend on mount
+  // =========================
+
+  useEffect(() => {
+    fetchDashboardProducts().catch(() => {
+      // error already captured in store; surfaced via `error` state
+    });
+  }, [fetchDashboardProducts]);
+
   // =========================
   // Subscription (Temporary)
   // Replace with backend later
@@ -37,13 +59,6 @@ export default function Products() {
   // =========================
 
   const FREE_PRODUCT_LIMIT = 10;
-  // =========================
-  // Free Category Limit
-  // =========================
-
-  const FREE_CATEGORY_LIMIT = 3;
-
-  const [categoryError, setCategoryError] = useState("");
 
   const hasReachedProductLimit =
     !isPlusUser && productList.length >= FREE_PRODUCT_LIMIT;
@@ -102,51 +117,51 @@ export default function Products() {
   };
 
   // =========================
-  // Save Product
+  // Save Product -> POST /product/add or PUT /product/update/:id
   // =========================
 
-  const handleSaveProduct = (productData) => {
-    const formattedProduct = {
-      id: modalMode === "add" ? Date.now() : productData.id,
+  const handleSaveProduct = async (productData) => {
+    setSaving(true);
 
-      sku: productData.sku || `SKU-${Date.now().toString().slice(-5)}`,
+    try {
+      const formData = new FormData();
 
-      name: productData.name,
+      formData.append("name", productData.name);
+      formData.append("description", productData.description || "");
+      formData.append("category", productData.category);
+      formData.append("price", Number(productData.price));
+      formData.append("stock", Number(productData.stock));
+      formData.append("is_available", productData.available);
+      formData.append("featured", productData.featured);
+      formData.append("combo", productData.combo);
+      formData.append("delivery", productData.delivery);
 
-      description: productData.description || "",
+      if (productData.sku) {
+        formData.append("sku", productData.sku);
+      }
 
-      category: productData.category,
+      // Only attach image if a new file was picked (File instance).
+      // If it's an existing URL string, backend keeps the old image.
+      if (productData.image instanceof File) {
+        formData.append("image", productData.image);
+      }
 
-      price: Number(productData.price),
+      if (modalMode === "add") {
+        await addProduct(formData);
+      } else {
+        await updateProduct(productData._id || productData.id, formData);
+      }
 
-      stock: Number(productData.stock),
-
-      available: productData.available,
-
-      featured: productData.featured,
-
-      combo: productData.combo,
-
-      delivery: productData.delivery,
-
-      image: productData.image || "https://placehold.co/600x600?text=Food",
-    };
-
-    if (modalMode === "add") {
-      setProductList((prev) => [formattedProduct, ...prev]);
-    } else {
-      setProductList((prev) =>
-        prev.map((item) =>
-          item.id === formattedProduct.id ? formattedProduct : item,
-        ),
-      );
+      setModalOpen(false);
+      setSelectedProduct(null);
+    } catch (err) {
+      alert(err.response?.data?.message || "Unable to save product.");
+    } finally {
+      setSaving(false);
     }
-
-    setModalOpen(false);
-    setSelectedProduct(null);
   };
   // =========================
-  // Delete
+  // Delete -> DELETE /product/delete/:id
   // =========================
 
   const handleDelete = (product) => {
@@ -154,13 +169,21 @@ export default function Products() {
     setDeleteOpen(true);
   };
 
-  const confirmDelete = () => {
-    setProductList((prev) =>
-      prev.filter((item) => item.id !== selectedProduct.id),
-    );
+  const confirmDelete = async () => {
+    if (!selectedProduct) return;
 
-    setDeleteOpen(false);
-    setSelectedProduct(null);
+    setDeleting(true);
+
+    try {
+      await deleteProduct(selectedProduct._id || selectedProduct.id);
+
+      setDeleteOpen(false);
+      setSelectedProduct(null);
+    } catch (err) {
+      alert(err.response?.data?.message || "Unable to delete product.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   // =========================
@@ -170,8 +193,8 @@ export default function Products() {
   const filteredProducts = useMemo(() => {
     return productList.filter((product) => {
       const matchesSearch =
-        product.name.toLowerCase().includes(search.toLowerCase()) ||
-        product.sku.toLowerCase().includes(search.toLowerCase());
+        product.name?.toLowerCase().includes(search.toLowerCase()) ||
+        product.sku?.toLowerCase().includes(search.toLowerCase());
 
       const matchesCategory =
         category === "All" || product.category === category;
@@ -191,13 +214,17 @@ export default function Products() {
     fileInputRef.current?.click();
   };
 
+  // =========================
+  // Import (Excel) -> creates products one by one via POST /product/add
+  // =========================
+
   const handleImport = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
 
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = new Uint8Array(e.target.result);
 
@@ -216,32 +243,48 @@ export default function Products() {
           return;
         }
 
-        const formattedProducts = importedProducts.map((item) => ({
-          id: Number(item.ID),
-          sku: item.SKU || "",
-          name: item.Name || "",
-          description: item.Description || "",
-          category: item.Category || "",
-          price: Number(item.Price) || 0,
-          stock: Number(item.Stock) || 0,
-          available: String(item.Available).toLowerCase() === "true",
-          featured: String(item.Featured).toLowerCase() === "true",
-          combo: String(item.Combo).toLowerCase() === "true",
-          delivery: String(item.Delivery).toLowerCase() === "true",
-          image: item.Image || "",
-        }));
+        let successCount = 0;
+        let failCount = 0;
 
-        setProductList((prevProducts) => {
-          const existingIds = new Set(prevProducts.map((p) => p.id));
+        for (const item of importedProducts) {
+          try {
+            const formData = new FormData();
 
-          const newProducts = formattedProducts.filter(
-            (p) => !existingIds.has(p.id),
-          );
+            formData.append("name", item.Name || "");
+            formData.append("description", item.Description || "");
+            formData.append("category", item.Category || "");
+            formData.append("price", Number(item.Price) || 0);
+            formData.append("stock", Number(item.Stock) || 0);
+            formData.append(
+              "is_available",
+              String(item.Available).toLowerCase() === "true",
+            );
+            formData.append(
+              "featured",
+              String(item.Featured).toLowerCase() === "true",
+            );
+            formData.append(
+              "combo",
+              String(item.Combo).toLowerCase() === "true",
+            );
+            formData.append(
+              "delivery",
+              String(item.Delivery).toLowerCase() === "true",
+            );
 
-          return [...prevProducts, ...newProducts];
-        });
+            if (item.SKU) formData.append("sku", item.SKU);
 
-        alert(`${formattedProducts.length} products imported successfully.`);
+            await addProduct(formData);
+            successCount += 1;
+          } catch {
+            failCount += 1;
+          }
+        }
+
+        alert(
+          `${successCount} products imported successfully.` +
+          (failCount ? ` ${failCount} failed.` : ""),
+        );
       } catch (error) {
         console.error(error);
         alert("Invalid Excel file.");
@@ -255,7 +298,7 @@ export default function Products() {
 
   const handleExport = () => {
     const exportData = productList.map((product) => ({
-      ID: product.id,
+      ID: product._id || product.id,
       SKU: product.sku,
       Name: product.name,
       Description: product.description,
@@ -298,6 +341,12 @@ export default function Products() {
           onExport={handleExport}
         />
 
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+            {error}
+          </div>
+        )}
+
         <ProductStats stats={productStats} />
 
         <ProductFilters
@@ -314,6 +363,7 @@ export default function Products() {
         <ProductGrid
           products={filteredProducts}
           view={view}
+          loading={loading}
           onView={handleView}
           onEdit={handleEdit}
           onDelete={handleDelete}
@@ -326,10 +376,16 @@ export default function Products() {
         />
 
         <ProductModal
+          key={
+            modalMode === "edit"
+              ? `edit-${selectedProduct?._id || selectedProduct?.id}`
+              : "add"
+          }
           open={modalOpen}
           onClose={() => setModalOpen(false)}
           mode={modalMode}
           product={selectedProduct}
+          saving={saving}
           onSave={handleSaveProduct}
         />
 
@@ -337,6 +393,7 @@ export default function Products() {
           open={deleteOpen}
           onClose={() => setDeleteOpen(false)}
           onDelete={confirmDelete}
+          deleting={deleting}
           product={selectedProduct}
         />
         {showUpgradeModal && (
