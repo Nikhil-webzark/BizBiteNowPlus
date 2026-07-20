@@ -1,134 +1,118 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 
+const INK = "#1A4D2E";
+
+// NOTE: the parent keys this component (mode/target + open state) so it
+// remounts fresh each time it's opened, instead of syncing state from props
+// via an effect.
 export default function DeliveryBoyForm({
   isOpen,
   onClose,
   onSave,
   editData,
+  saving = false,
 }) {
-  const [formData, setFormData] = useState({
-    name: "",
-    phone: "",
-    vehicle: "Bike",
-    vehicleNo: "",
-    status: "Online",
-  });
-
-  useEffect(() => {
-    if (editData) {
-      setFormData(editData);
-    } else {
-      setFormData({
-        name: "",
-        phone: "",
-        vehicle: "Bike",
-        vehicleNo: "",
-        status: "Online",
-      });
-    }
-  }, [editData]);
+  const [formData, setFormData] = useState(() =>
+    editData
+      ? {
+        name: editData.name || "",
+        phoneNumber: editData.phoneNumber || "",
+        is_available: editData.is_available ?? true,
+      }
+      : { name: "", phoneNumber: "", is_available: true },
+  );
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value, type, checked } = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    onSave(formData);
+    if (saving) return;
 
-    onClose();
+    onSave(formData);
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-
-        <h2 className="text-2xl font-bold text-black mb-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <h2 className="text-lg font-semibold text-slate-900">
           {editData ? "Edit Delivery Boy" : "Add Delivery Boy"}
         </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">
+              Name
+            </label>
+            <input
+              type="text"
+              name="name"
+              placeholder="Ravi Kumar"
+              value={formData.name}
+              onChange={handleChange}
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-[#1A4D2E] focus:ring-4 focus:ring-[#1A4D2E]/10"
+              required
+            />
+          </div>
 
-          <input
-            type="text"
-            name="name"
-            placeholder="Name"
-            value={formData.name}
-            onChange={handleChange}
-            className="w-full border rounded-lg px-4 py-2"
-            required
-          />
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">
+              Phone Number
+            </label>
+            <input
+              type="tel"
+              name="phoneNumber"
+              placeholder="9876543210"
+              value={formData.phoneNumber}
+              onChange={handleChange}
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-[#1A4D2E] focus:ring-4 focus:ring-[#1A4D2E]/10"
+              required
+            />
+          </div>
 
-          <input
-            type="text"
-            name="phone"
-            placeholder="Phone"
-            value={formData.phone}
-            onChange={handleChange}
-            className="w-full border rounded-lg px-4 py-2"
-            required
-          />
+          <label className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
+            <span className="text-sm font-medium text-slate-700">
+              Available
+            </span>
+            <input
+              type="checkbox"
+              name="is_available"
+              checked={formData.is_available}
+              onChange={handleChange}
+              className="h-4 w-4 accent-[#1A4D2E]"
+            />
+          </label>
 
-          <select
-            name="vehicle"
-            value={formData.vehicle}
-            onChange={handleChange}
-            className="w-full border rounded-lg px-4 py-2"
-          >
-            <option>Bike</option>
-            <option>Scooty</option>
-            <option>Bicycle</option>
-          </select>
-
-          <input
-            type="text"
-            name="vehicleNo"
-            placeholder="Vehicle Number"
-            value={formData.vehicleNo}
-            onChange={handleChange}
-            className="w-full border rounded-lg px-4 py-2"
-          />
-
-          <select
-            name="status"
-            value={formData.status}
-            onChange={handleChange}
-            className="w-full border rounded-lg px-4 py-2"
-          >
-            <option>Online</option>
-            <option>Offline</option>
-          </select>
-
-          <div className="flex justify-end gap-3 pt-3">
-
+          <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2 rounded-lg bg-gray-200 hover:bg-gray-100 cursor-pointer"
+              disabled={saving}
+              className="rounded-xl bg-slate-100 px-5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Cancel
             </button>
 
             <button
               type="submit"
-              className="px-5 py-2 rounded-lg bg-green-900 hover:bg-green-800 text-white cursor-pointer"
+              disabled={saving}
+              className="rounded-xl px-5 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+              style={{ backgroundColor: INK }}
             >
-              Save
+              {saving ? "Saving..." : "Save"}
             </button>
-
           </div>
-
         </form>
-
       </div>
-
     </div>
   );
 }
