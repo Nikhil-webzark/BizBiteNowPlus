@@ -1,62 +1,60 @@
 import { useState, useEffect } from "react";
 
-import SectionHeader from "../../components/customer/common/SectionHeader";
+// import SectionHeader from "../../components/customer/common/SectionHeader";
 import { motion } from "framer-motion";
 import LoyaltyCard from "../../components/customer/rewards/LoyaltyCard";
 import RewardProgress from "../../components/customer/rewards/RewardProgress";
 import Coupons from "../../components/customer/rewards/Coupons";
-import { offersToCoupons } from "../../components/customer/rewards/offerMapper";
-import { getCustomerLoyaltyStatus } from "../../api/loyalty";
-import { getActiveOffers } from "../../api/offers";
+import { discountsToCoupons } from "../../components/customer/rewards/discountMapper";
+import useDiscountStore from "../../store/discountStore";
+import useAuthStore from "../../store/authStore";
 import { loyaltyData as DEMO_LOYALTY_DATA } from "../../data/customer/rewardsData";
-import { DEMO_ACTIVE_OFFERS } from "../../data/demoActiveOffers";
 import { Link } from "react-router-dom";
 import ActivityTimeline from "../../components/customer/rewards/ActivityTimeline";
 import { DEMO_ACTIVITY } from "../../data/customer/demoActivityData";
-import { Gift } from "lucide-react";
+// import { Gift } from "lucide-react";
 
 import couponsData from "../../data/customer/couponsData";
 import { Bell } from "lucide-react";
 
-// TODO: pull from auth/session context once available.
-const CURRENT_CUSTOMER_ID = "me";
-
 const Rewards = () => {
-  const [loyalty, setLoyalty] = useState(DEMO_LOYALTY_DATA);
+  const [loyalty] = useState(DEMO_LOYALTY_DATA);
 
   const [coupons, setCoupons] = useState(couponsData);
 
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [usedCoupons, setUsedCoupons] = useState([]);
+  const [couponError, setCouponError] = useState(null);
+
+  const { getDiscounts, checkDiscount } = useDiscountStore();
+  const { user } = useAuthStore();
 
   useEffect(() => {
-    getCustomerLoyaltyStatus(CURRENT_CUSTOMER_ID)
-      .then(setLoyalty)
+    getDiscounts()
+      .then((discounts) => setCoupons(discountsToCoupons(discounts)))
       .catch(() => {
-        // Per orientation §14: mock data while /api/loyalty isn't live.
-        setLoyalty(DEMO_LOYALTY_DATA);
+        // Backend /discounts/ not reachable (or not yet live) — fall back to mock.
+        setCoupons(couponsData);
       });
-  }, []);
+  }, [getDiscounts]);
 
-  useEffect(() => {
-    getActiveOffers()
-      .then((offers) => setCoupons(offersToCoupons(offers)))
-      .catch(() => {
-        // Per orientation §14: mock data while /api/offers/active isn't live.
-        setCoupons(offersToCoupons(DEMO_ACTIVE_OFFERS));
-        // Swap the line above for `setCoupons(couponsData)` instead if you'd
-        // rather fall back to the hand-written demo coupons than mapped
-        // seller-offer mock data — both are valid fallbacks, pick one.
-      });
-  }, []);
-
-  const applyCoupon = (coupon) => {
+  const applyCoupon = async (coupon) => {
     if (usedCoupons.includes(coupon.code)) return;
 
-    setAppliedCoupon(coupon);
-    localStorage.setItem("appliedCoupon", JSON.stringify(coupon));
+    setCouponError(null);
+
+    try {
+      // Rewards page has no cart context, so cart_total is 0 for a preview
+      // check — real order-time validation happens again at Checkout.
+      const result = await checkDiscount(coupon.code, coupon.sellerId, user?.phone, 0);
+      const applied = { ...coupon, ...result };
+      setAppliedCoupon(applied);
+      localStorage.setItem("appliedCoupon", JSON.stringify(applied));
+    } catch (err) {
+      setCouponError(err.response?.data?.message || "Invalid or expired code");
+    }
   };
-  const rewardReady = loyalty.stampsCollected >= loyalty.threshold;
+  // const rewardReady = loyalty.stampsCollected >= loyalty.threshold;
 
   const handleCopy = () => {
     // Coupons.jsx already copies to clipboard itself and calls this back —
@@ -152,6 +150,10 @@ const Rewards = () => {
               onApply={applyCoupon}
               onCopy={handleCopy}
             />
+
+            {couponError && (
+              <p className="text-sm font-medium text-red-600">{couponError}</p>
+            )}
 
             <ActivityTimeline activities={DEMO_ACTIVITY} />
           </section>
