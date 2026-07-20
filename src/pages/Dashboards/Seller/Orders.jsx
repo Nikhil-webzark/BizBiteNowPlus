@@ -13,9 +13,11 @@ import BulkActions from "../../../components/orders/BulkActions";
 import ExportModal from "../../../components/orders/ExportModal";
 import AssignDeliveryModal from "../../../components/delivery/AssignDeliveryModal";
 
-// Local data + store
-import deliveryBoyData from "../../../data/deliveryBoyData";
 import useOrderStore from "../../../store/orderStore";
+import axiosInstance from "../../../api/axios";
+
+// 🆕 5-step seller-side tracking, must match Order model's delivery_status enum
+const STEP_ORDER = ["Pending", "Preparing", "Ready", "Out for Delivery", "Delivered"];
 
 export default function Orders() {
   const {
@@ -28,14 +30,11 @@ export default function Orders() {
     assignOrder,
   } = useOrderStore();
 
-  // ==========================
-  // Normalize backend order shape -> shape the UI expects
-  // ==========================
+  // Normalize backend order shape -> UI required shape
   const normalizedOrders = useMemo(() => {
     return (orders || []).map((o) => {
-      const backendStatus = String(
-        o.delivery_status || o.status || "Unassigned",
-      ).trim();
+      const backendStatus = String(o.delivery_status || o.status || "Pending").trim();
+      const stepIndex = STEP_ORDER.indexOf(backendStatus); // -1 for Cancelled / Ready for Pickup / Picked Up
 
       return {
         ...o,
@@ -52,12 +51,8 @@ export default function Orders() {
         amount: o.total_amount ?? o.amount ?? 0,
         payment: o.payment_method || "COD",
         status: backendStatus,
-        trackingStep:
-          backendStatus.toUpperCase() === "DELIVERED"
-            ? 4
-            : backendStatus.toUpperCase() === "OUT FOR DELIVERY"
-              ? 3
-              : 1,
+        // 1 = Pending ... 5 = Delivered, matches STEP_ORDER (1-indexed for the UI)
+        trackingStep: stepIndex >= 0 ? stepIndex + 1 : 1,
         createdAt: o.createdAt || new Date().toISOString(),
         deliveredAt: o.updatedAt,
         deliveryBoy: o.delivery_boy_name || "Unassigned",
@@ -81,15 +76,41 @@ export default function Orders() {
   const [assignModal, setAssignModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  // Delivery boys — local/mock data
-  const [deliveryBoys, setDeliveryBoys] = useState(() => {
-    const saved = JSON.parse(localStorage.getItem("deliveryBoys"));
-    return saved && saved.length > 0 ? saved : deliveryBoyData;
-  });
+  // Delivery boys — Array initialized
+  const [deliveryBoys, setDeliveryBoys] = useState([]);
 
+  // Fetch Delivery Boys with Array Validation Guard
   useEffect(() => {
-    localStorage.setItem("deliveryBoys", JSON.stringify(deliveryBoys));
-  }, [deliveryBoys]);
+    let isMounted = true;
+    const loadDeliveryBoys = async () => {
+      try {
+        const res = await axiosInstance.get("/deliveryBoy/list");
+
+        // Handle varied backend response formats safely
+        const rawData =
+          res.data?.data ||
+          res.data?.deliveryBoys ||
+          res.data?.deliveryBoy ||
+          res.data;
+
+        const list = Array.isArray(rawData) ? rawData : [];
+
+        if (isMounted) {
+          setDeliveryBoys(list);
+          localStorage.setItem("deliveryBoys", JSON.stringify(list));
+        }
+      } catch (err) {
+        console.error("Failed to fetch delivery partners list:", err);
+        if (isMounted) setDeliveryBoys([]);
+      }
+    };
+
+    loadDeliveryBoys();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -152,15 +173,12 @@ export default function Orders() {
     return data;
   }, [normalizedOrders, activeTab, search, status, payment, sort]);
 
-  // Dashboard metrics & tab counters
+  // Dashboard metrics
   const stats = useMemo(() => {
     return {
       total: normalizedOrders.length,
-      pending: normalizedOrders.filter(
-        (o) =>
-          o.status.toUpperCase() === "PENDING" ||
-          o.status.toUpperCase() === "UNASSIGNED",
-      ).length,
+      pending: normalizedOrders.filter((o) => o.status.toUpperCase() === "PENDING")
+        .length,
       preparing: normalizedOrders.filter((o) => o.status.toUpperCase() === "PREPARING")
         .length,
       delivered: normalizedOrders.filter((o) => o.status.toUpperCase() === "DELIVERED")
@@ -187,7 +205,6 @@ export default function Orders() {
 
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / rowsPerPage));
 
-  // FIX: Promise.resolve Async boundaries to resolve direct setState ESLint warnings
   useEffect(() => {
     let isMounted = true;
     Promise.resolve().then(() => {
@@ -248,8 +265,15 @@ export default function Orders() {
       await fetchOrders();
     } catch (err) {
       console.error("Status update failed:", err);
+      alert(err.response?.data?.message || "Unable to update order status");
     }
   };
+
+  // 🆕 New order comes in as "Pending" -> seller Accepts, starting the
+  // 5-step tracking at "Preparing". Reject reuses the existing onCancel
+  // path below since OrderActionModal only exposes cancelOrder, not a
+  // separate reject action — same underlying "Cancelled" status either way.
+  const handleAcceptOrder = (id) => updateStatus(id, "Preparing");
 
   const bulkUpdate = async (newStatus) => {
     try {
@@ -257,25 +281,44 @@ export default function Orders() {
       await fetchOrders();
     } catch (err) {
       console.error("Bulk update failed:", err);
+      alert(err.response?.data?.message || "Unable to update selected orders");
     } finally {
       setSelectedOrders([]);
     }
   };
 
+  // 🚀 WhatsApp Redirection on Assign Click
   const handleAssignDelivery = async (boyId) => {
-    const boy = deliveryBoys.find((item) => item.id === boyId || item._id === boyId);
+    const safeBoys = Array.isArray(deliveryBoys) ? deliveryBoys : [];
+    const boy = safeBoys.find((item) => item.id === boyId || item._id === boyId);
     if (!boy || !selectedOrder) return;
 
     try {
-      await assignOrder(selectedOrder.id, boyId);
+      const res = await assignOrder(selectedOrder.id, boyId);
+
+      // 📲 Auto open WhatsApp with pre-filled details & location
+      const waUrl = res?.whatsappUrl || res?.data?.whatsappUrl;
+      if (waUrl) {
+        window.open(waUrl, "_blank");
+      }
 
       setDeliveryBoys((prev) =>
-        prev.map((item) =>
-          (item.id === boyId || item._id === boyId)
+        (Array.isArray(prev) ? prev : []).map((item) =>
+          item.id === boyId || item._id === boyId
             ? { ...item, assignedOrders: (item.assignedOrders || 0) + 1 }
             : item,
         ),
       );
+
+      // Assigning a delivery partner IS the "Out for Delivery" step —
+      // move the order forward unless the backend already did this.
+      if (selectedOrder.status !== "Out for Delivery") {
+        try {
+          await updateOrderStatus(selectedOrder.id, "Out for Delivery");
+        } catch (statusErr) {
+          console.error("Failed to advance status after assign:", statusErr);
+        }
+      }
 
       setAssignModal(false);
       setSelectedOrder(null);
@@ -286,7 +329,12 @@ export default function Orders() {
     }
   };
 
-  const handleAssignClick = (order) => {
+  const handleAssignClick = (orderOrId) => {
+    const order =
+      orderOrId && typeof orderOrId === "object"
+        ? orderOrId
+        : normalizedOrders.find((o) => o.id === orderOrId);
+    if (!order) return;
     setSelectedOrder(order);
     setAssignModal(true);
   };
@@ -317,6 +365,9 @@ export default function Orders() {
   const autoCancelOrder = (order) => {
     updateStatus(order.id, "Cancelled");
   };
+
+  // Safe delivery boys array reference
+  const safeDeliveryBoysList = Array.isArray(deliveryBoys) ? deliveryBoys : [];
 
   return (
     <motion.div
@@ -380,16 +431,16 @@ export default function Orders() {
           <>
             <OrdersTable
               orders={paginatedOrders}
-              deliveryBoys={deliveryBoys}
+              deliveryBoys={safeDeliveryBoysList}
               activeTab={activeTab}
               selectedOrders={selectedOrders}
               toggleOrder={toggleOrder}
               toggleAll={toggleAll}
               onView={openDrawer}
-              onAccept={(id) => updateStatus(id, "Preparing")}
+              onAccept={(id) => handleAcceptOrder(id)}
               onPreparing={(id) => updateStatus(id, "Preparing")}
               onReady={(id) => updateStatus(id, "Ready")}
-              onDelivery={(id) => updateStatus(id, "Out for Delivery")}
+              onDelivery={(id) => handleAssignClick(id)}
               onDelivered={(id) => updateStatus(id, "Delivered")}
               onCancel={(id) => updateStatus(id, "Cancelled")}
               onAssign={handleAssignClick}
@@ -424,7 +475,19 @@ export default function Orders() {
           isOpen={assignModal}
           onClose={() => setAssignModal(false)}
           order={selectedOrder}
-          deliveryBoys={deliveryBoys.filter((boy) => boy.status === "Online")}
+          deliveryBoys={safeDeliveryBoysList.filter((boy) => {
+            // 1. Agar DB mein status field hi nahi hai, toh default show hone do
+            if (!boy.status && boy.isOnline === undefined) return true;
+
+            // 2. Case-insensitive & multi-status match
+            const s = String(boy.status || "").toLowerCase();
+            return (
+              s === "online" ||
+              s === "active" ||
+              s === "available" ||
+              boy.isOnline === true
+            );
+          })}
           onAssign={handleAssignDelivery}
         />
       </div>
