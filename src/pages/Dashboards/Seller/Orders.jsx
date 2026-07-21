@@ -1,224 +1,232 @@
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 
+// Core UI Components
 import OrdersHeader from "../../../components/orders/OrdersHeader";
 import OrderStats from "../../../components/orders/OrderStats";
 import OrdersTabs from "../../../components/orders/OrderTabs";
 import OrderFilters from "../../../components/orders/OrderFilters";
 import OrdersTable from "../../../components/orders/OrdersTable";
 import OrderPagination from "../../../components/orders/OrderPagination";
-import { motion } from "framer-motion";
 import OrderDrawer from "../../../components/orders/OrderDrawer";
-import OrderBoard from "../../../components/orders/OrderBoard";
 import BulkActions from "../../../components/orders/BulkActions";
 import ExportModal from "../../../components/orders/ExportModal";
-// import AssignDeliveryModal from "../../../components/orders/AssignDeliveryModal";
-import deliveryBoyData from "../../../data/deliveryBoyData";
-import AssignOrderModal from "../../../components/delivery/AssignOrderModal.jsx";
 import AssignDeliveryModal from "../../../components/delivery/AssignDeliveryModal";
 
-import { orders as initialOrders } from "../../../data/ordersData.js";
+import useOrderStore from "../../../store/orderStore";
+import axiosInstance from "../../../api/axios";
+
+// 🆕 5-step seller-side tracking, must match Order model's delivery_status enum
+const STEP_ORDER = ["Pending", "Preparing", "Ready", "Out for Delivery", "Delivered"];
 
 export default function Orders() {
-  const [orders, setOrders] = useState(initialOrders);
+  const {
+    orders,
+    isLoading,
+    error,
+    fetchOrders,
+    updateOrderStatus,
+    deleteOrder,
+    assignOrder,
+  } = useOrderStore();
 
-  // ==========================
-  // Tabs
-  // ==========================
+  // Normalize backend order shape -> UI required shape
+  const normalizedOrders = useMemo(() => {
+    return (orders || []).map((o) => {
+      const backendStatus = String(o.delivery_status || o.status || "Pending").trim();
+      const stepIndex = STEP_ORDER.indexOf(backendStatus); // -1 for Cancelled / Ready for Pickup / Picked Up
+
+      return {
+        ...o,
+        id: o._id || o.id,
+        orderId:
+          o.razorpay_order_id || o._id?.toString().slice(-6).toUpperCase() || "ORD-TX",
+        customer: o.customer_name || "Guest Customer",
+        phone: o.customer_phone || "N/A",
+        address:
+          typeof o.delivery_address === "object"
+            ? o.delivery_address?.address_line
+            : o.delivery_address || "",
+        items: o.items || [],
+        amount: o.total_amount ?? o.amount ?? 0,
+        payment: o.payment_method || "COD",
+        status: backendStatus,
+        // 1 = Pending ... 5 = Delivered, matches STEP_ORDER (1-indexed for the UI)
+        trackingStep: stepIndex >= 0 ? stepIndex + 1 : 1,
+        createdAt: o.createdAt || new Date().toISOString(),
+        deliveredAt: o.updatedAt,
+        deliveryBoy: o.delivery_boy_name || "Unassigned",
+        deliveryBoyId: o.delivery_boy_id || null,
+      };
+    });
+  }, [orders]);
 
   const [activeTab, setActiveTab] = useState("new");
-
-  // ==========================
-  // Filters
-  // ==========================
-
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
   const [payment, setPayment] = useState("All");
   const [sort, setSort] = useState("Newest");
 
-  // ==========================
-  // Pagination
-  // ==========================
-
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-
-  // ==========================
-  // Drawer
-  // ==========================
-
   const [drawerOpen, setDrawerOpen] = useState(false);
-  // const [selectedOrder, setSelectedOrder] = useState(null);
-
-  // ==========================
-  // Bulk Selection
-  // ==========================
-
   const [selectedOrders, setSelectedOrders] = useState([]);
-
-  // ==========================
-  // View
-  // ==========================
-
   const [boardView, setBoardView] = useState(false);
-
-  // ==========================
-  // Export
-  // ==========================
-
   const [exportOpen, setExportOpen] = useState(false);
   const [assignModal, setAssignModal] = useState(false);
-
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-const [deliveryBoys, setDeliveryBoys] = useState([]);
-useEffect(() => {
-  const saved =
-    JSON.parse(localStorage.getItem("deliveryBoys")) ||
-    deliveryBoyData;
+  // Delivery boys — Array initialized
+  const [deliveryBoys, setDeliveryBoys] = useState([]);
 
-  setDeliveryBoys(saved);
-}, []);
-
-const [assignedOrders, setAssignedOrders] = useState([]);
+  // Fetch Delivery Boys with Array Validation Guard
   useEffect(() => {
-    localStorage.setItem("deliveryBoys", JSON.stringify(deliveryBoys));
-  }, [deliveryBoys]);
+    let isMounted = true;
+    const loadDeliveryBoys = async () => {
+      try {
+        const res = await axiosInstance.get("/deliveryBoy/list");
 
-  // ==========================
-  // Subscription
-  // ==========================
+        // Handle varied backend response formats safely
+        const rawData =
+          res.data?.data ||
+          res.data?.deliveryBoys ||
+          res.data?.deliveryBoy ||
+          res.data;
 
-  const isPlusUser = false;
+        const list = Array.isArray(rawData) ? rawData : [];
 
-  // =====================================
-  // Filter Orders
-  // =====================================
+        if (isMounted) {
+          setDeliveryBoys(list);
+          localStorage.setItem("deliveryBoys", JSON.stringify(list));
+        }
+      } catch (err) {
+        console.error("Failed to fetch delivery partners list:", err);
+        if (isMounted) setDeliveryBoys([]);
+      }
+    };
 
+    loadDeliveryBoys();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.resolve().then(() => {
+      if (isMounted) {
+        fetchOrders().catch((err) => console.error("Failed to fetch orders:", err));
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Filter pipeline
   const filteredOrders = useMemo(() => {
-    let data = [...orders];
-
-    // Tabs
+    let data = [...normalizedOrders];
 
     if (activeTab === "new") {
-      data = data.filter((order) => order.status !== "Delivered");
+      data = data.filter((order) => {
+        const s = order.status.toUpperCase();
+        return s !== "DELIVERED" && s !== "CANCELLED";
+      });
     }
 
     if (activeTab === "completed") {
-      data = data.filter((order) => order.status === "Delivered");
-
-      // Free Tier: Today's completed orders only
-      if (!isPlusUser) {
-        const today = new Date("2026-07-05").toDateString();
-
-        data = data.filter((order) => {
-          const completedDate = new Date(
-            order.deliveredAt || order.createdAt,
-          ).toDateString();
-
-          return completedDate === today;
-        });
-      }
+      data = data.filter((order) => {
+        const s = order.status.toUpperCase();
+        return s === "DELIVERED" || s === "CANCELLED";
+      });
     }
-
-    // Search
 
     if (search.trim()) {
       const value = search.toLowerCase();
-
       data = data.filter(
         (order) =>
-          order.orderId.toLowerCase().includes(value) ||
-          order.customer.toLowerCase().includes(value) ||
-          order.phone.includes(value),
+          order.orderId?.toLowerCase().includes(value) ||
+          order.customer?.toLowerCase().includes(value) ||
+          order.phone?.includes(value),
       );
     }
 
-    // Status
-
-    if (status !== "All") {
-      data = data.filter((order) => order.status === status);
-    }
-
-    // Payment
-
-    if (payment !== "All") {
-      data = data.filter((order) => order.payment === payment);
-    }
-
-    // Sorting
+    if (status !== "All") data = data.filter((order) => order.status === status);
+    if (payment !== "All") data = data.filter((order) => order.payment === payment);
 
     switch (sort) {
       case "Highest Amount":
         data.sort((a, b) => b.amount - a.amount);
         break;
-
       case "Lowest Amount":
         data.sort((a, b) => a.amount - b.amount);
         break;
-
       case "Oldest":
         data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
         break;
-
       default:
         data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
 
     return data;
-  }, [orders, activeTab, search, status, payment, sort]);
+  }, [normalizedOrders, activeTab, search, status, payment, sort]);
 
-  // =====================================
-  // Dashboard Stats
-  // =====================================
-
+  // Dashboard metrics
   const stats = useMemo(() => {
     return {
-      total: orders.length,
-
-      pending: orders.filter((o) => o.status === "Pending").length,
-
-      preparing: orders.filter((o) => o.status === "Preparing").length,
-
-      delivered: orders.filter((o) => o.status === "Delivered").length,
-
-      revenue: orders
-        .filter((o) => o.status === "Delivered")
-        .reduce((sum, order) => sum + order.amount, 0),
+      total: normalizedOrders.length,
+      pending: normalizedOrders.filter((o) => o.status.toUpperCase() === "PENDING")
+        .length,
+      preparing: normalizedOrders.filter((o) => o.status.toUpperCase() === "PREPARING")
+        .length,
+      delivered: normalizedOrders.filter((o) => o.status.toUpperCase() === "DELIVERED")
+        .length,
+      revenue: normalizedOrders
+        .filter((o) => o.status.toUpperCase() === "DELIVERED")
+        .reduce((sum, order) => sum + (order.amount || 0), 0),
     };
-  }, [orders]);
+  }, [normalizedOrders]);
 
-  // =====================================
-  // Tab Counts
-  // =====================================
+  const newOrdersCount = useMemo(() => {
+    return normalizedOrders.filter((o) => {
+      const s = o.status.toUpperCase();
+      return s !== "DELIVERED" && s !== "CANCELLED";
+    }).length;
+  }, [normalizedOrders]);
 
-  const newOrdersCount = useMemo(
-    () => orders.filter((o) => o.status !== "Delivered").length,
-    [orders],
-  );
+  const completedOrdersCount = useMemo(() => {
+    return normalizedOrders.filter((o) => {
+      const s = o.status.toUpperCase();
+      return s === "DELIVERED" || s === "CANCELLED";
+    }).length;
+  }, [normalizedOrders]);
 
-  const completedOrdersCount = useMemo(
-    () => orders.filter((o) => o.status === "Delivered").length,
-    [orders],
-  );
-
-  // =====================================
-  // Pagination
-  // =====================================
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredOrders.length / rowsPerPage),
-  );
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / rowsPerPage));
 
   useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
+    let isMounted = true;
+    Promise.resolve().then(() => {
+      if (isMounted && currentPage > totalPages) {
+        setCurrentPage(totalPages);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
   }, [currentPage, totalPages]);
 
   useEffect(() => {
-    setCurrentPage(1);
+    let isMounted = true;
+    Promise.resolve().then(() => {
+      if (isMounted) {
+        setCurrentPage(1);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
   }, [activeTab, search, status, payment, sort]);
 
   const paginatedOrders = useMemo(() => {
@@ -228,23 +236,14 @@ const [assignedOrders, setAssignedOrders] = useState([]);
     );
   }, [filteredOrders, currentPage, rowsPerPage]);
 
-  // =====================================
-  // Drawer
-  // =====================================
-
   const openDrawer = (order) => {
     setSelectedOrder(order);
     setDrawerOpen(true);
   };
-
   const closeDrawer = () => {
     setDrawerOpen(false);
     setSelectedOrder(null);
   };
-
-  // =====================================
-  // Bulk Selection
-  // =====================================
 
   const toggleOrder = (id) => {
     setSelectedOrders((prev) =>
@@ -257,32 +256,99 @@ const [assignedOrders, setAssignedOrders] = useState([]);
       setSelectedOrders([]);
       return;
     }
-
     setSelectedOrders(paginatedOrders.map((order) => order.id));
   };
 
-  // =====================================
-  // Bulk Status Update
-  // =====================================
-
-  const bulkUpdate = (status) => {
-    setOrders((prev) =>
-      prev.map((order) =>
-        selectedOrders.includes(order.id)
-          ? {
-              ...order,
-              status,
-            }
-          : order,
-      ),
-    );
-
-    setSelectedOrders([]);
+  const updateStatus = async (id, newStatus) => {
+    try {
+      await updateOrderStatus(id, newStatus);
+      await fetchOrders();
+    } catch (err) {
+      console.error("Status update failed:", err);
+      alert(err.response?.data?.message || "Unable to update order status");
+    }
   };
 
-  // =====================================
-  // Reset Filters
-  // =====================================
+  // 🆕 New order comes in as "Pending" -> seller Accepts, starting the
+  // 5-step tracking at "Preparing". Reject reuses the existing onCancel
+  // path below since OrderActionModal only exposes cancelOrder, not a
+  // separate reject action — same underlying "Cancelled" status either way.
+  const handleAcceptOrder = (id) => updateStatus(id, "Preparing");
+
+  const bulkUpdate = async (newStatus) => {
+    try {
+      await Promise.all(selectedOrders.map((id) => updateOrderStatus(id, newStatus)));
+      await fetchOrders();
+    } catch (err) {
+      console.error("Bulk update failed:", err);
+      alert(err.response?.data?.message || "Unable to update selected orders");
+    } finally {
+      setSelectedOrders([]);
+    }
+  };
+
+  // 🚀 WhatsApp Redirection on Assign Click
+  const handleAssignDelivery = async (boyId) => {
+    const safeBoys = Array.isArray(deliveryBoys) ? deliveryBoys : [];
+    const boy = safeBoys.find((item) => item.id === boyId || item._id === boyId);
+    if (!boy || !selectedOrder) return;
+
+    try {
+      const res = await assignOrder(selectedOrder.id, boyId);
+
+      // 📲 Auto open WhatsApp with pre-filled details & location
+      const waUrl = res?.whatsappUrl || res?.data?.whatsappUrl;
+      if (waUrl) {
+        window.open(waUrl, "_blank");
+      }
+
+      setDeliveryBoys((prev) =>
+        (Array.isArray(prev) ? prev : []).map((item) =>
+          item.id === boyId || item._id === boyId
+            ? { ...item, assignedOrders: (item.assignedOrders || 0) + 1 }
+            : item,
+        ),
+      );
+
+      // Assigning a delivery partner IS the "Out for Delivery" step —
+      // move the order forward unless the backend already did this.
+      if (selectedOrder.status !== "Out for Delivery") {
+        try {
+          await updateOrderStatus(selectedOrder.id, "Out for Delivery");
+        } catch (statusErr) {
+          console.error("Failed to advance status after assign:", statusErr);
+        }
+      }
+
+      setAssignModal(false);
+      setSelectedOrder(null);
+      await fetchOrders();
+    } catch (err) {
+      console.error("Assign order failed:", err);
+      alert(err.response?.data?.message || "Unable to assign order");
+    }
+  };
+
+  const handleAssignClick = (orderOrId) => {
+    const order =
+      orderOrId && typeof orderOrId === "object"
+        ? orderOrId
+        : normalizedOrders.find((o) => o.id === orderOrId);
+    if (!order) return;
+    setSelectedOrder(order);
+    setAssignModal(true);
+  };
+
+  const handleDeleteOrder = async (id) => {
+    if (!confirm("Delete this order permanently?")) return;
+
+    try {
+      await deleteOrder(id);
+    } catch (err) {
+      console.error("Delete order failed:", err);
+      alert(err.response?.data?.message || "Unable to delete order");
+    }
+  };
 
   const handleReset = () => {
     setSearch("");
@@ -292,163 +358,17 @@ const [assignedOrders, setAssignedOrders] = useState([]);
     setCurrentPage(1);
   };
 
-  // =====================================
-  // Single Status Update
-  // =====================================
-
-  const updateStatus = (id, status) => {
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === id
-          ? {
-              ...order,
-              status,
-              trackingStep:
-                status === "Pending"
-                  ? 1
-                  : status === "Preparing"
-                    ? 2
-                    : status === "Ready"
-                      ? 2
-                      : status === "Out for Delivery"
-                        ? 3
-                        : status === "Delivered"
-                          ? 4
-                          : order.trackingStep,
-            }
-          : order,
-      ),
-    );
-  };
-
-  //   const handleAssignClick = (order) => {
-  //   setSelectedOrder(order);
-  //   setAssignModal(true);
-  // };
-
-  // handle assign
- const handleAssignDelivery = (boyId) => {
-  const boy = deliveryBoys.find(
-    (item) => item.id === boyId
-  );
-
-  if (!boy || !selectedOrder) return;
-
-  const assignedOrder = {
-    id: Date.now(),
-
-    orderId: selectedOrder.orderId,
-
-    customer: selectedOrder.customer,
-
-    phone: selectedOrder.phone,
-
-    address: selectedOrder.address,
-
-    items:
-      selectedOrder.items
-        ?.map((item) => item.name)
-        .join(", ") || "",
-
-    amount: selectedOrder.amount,
-
-    payment: selectedOrder.payment,
-
-    deliveryBoy: boy.name,
-
-    deliveryBoyId: boy.id,
-
-    status: "Assigned",
-
-    assignedAt: new Date().toLocaleString(),
-  };
-
-  // Assigned Orders
-  const updatedAssignedOrders = [
-    ...assignedOrders,
-    assignedOrder,
-  ];
-
-  setAssignedOrders(updatedAssignedOrders);
-
-  localStorage.setItem(
-    "assignedOrders",
-    JSON.stringify(updatedAssignedOrders)
-  );
-
-  // Orders
-  setOrders((prev) =>
-    prev.map((order) =>
-      order.id === selectedOrder.id
-        ? {
-            ...order,
-            status: "Out for Delivery",
-            deliveryBoy: boy.name,
-            deliveryBoyId: boy.id,
-            trackingStep: 3,
-          }
-        : order
-    )
-  );
-
-  // Delivery Boys
-  setDeliveryBoys((prev) => {
-    const updated = prev.map((item) =>
-      item.id === boy.id
-        ? {
-            ...item,
-            assignedOrders:
-              (item.assignedOrders || 0) + 1,
-          }
-        : item
-    );
-
-    localStorage.setItem(
-      "deliveryBoys",
-      JSON.stringify(updated)
-    );
-
-    return updated;
-  });
-
-  setAssignModal(false);
-  setSelectedOrder(null);
-
-  alert("Order Assigned Successfully");
-};
-  // Open Assign Delivery Modal
-  const handleAssignClick = (order) => {
-    setSelectedOrder(order);
-    setAssignModal(true);
-  };
-  // =====================================
-  // Export
-  // =====================================
-
   const exportOrders = (month) => {
     console.log("Export PDF:", month);
   };
 
-  // =====================================
-  // Auto Cancel
-  // =====================================
-
   const autoCancelOrder = (order) => {
     updateStatus(order.id, "Cancelled");
   };
-useEffect(() => {
-  console.log("Imported deliveryBoyData:", deliveryBoyData);
 
-  const saved = JSON.parse(localStorage.getItem("deliveryBoys"));
-  console.log("Saved deliveryBoys:", saved);
+  // Safe delivery boys array reference
+  const safeDeliveryBoysList = Array.isArray(deliveryBoys) ? deliveryBoys : [];
 
-  const data =
-    saved && saved.length > 0 ? saved : deliveryBoyData;
-
-  console.log("Using:", data);
-
-  setDeliveryBoys(data);
-}, []);
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -458,12 +378,18 @@ useEffect(() => {
     >
       <div className="space-y-8">
         <OrdersHeader
-          totalOrders={orders.length}
+          totalOrders={normalizedOrders.length}
           boardView={boardView}
           setBoardView={setBoardView}
-          onRefresh={() => window.location.reload()}
+          onRefresh={fetchOrders}
           onExport={() => setExportOpen(true)}
         />
+
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
 
         <OrderStats stats={stats} />
 
@@ -497,75 +423,29 @@ useEffect(() => {
           onCancel={() => bulkUpdate("Cancelled")}
         />
 
-        {boardView && isPlusUser ? (
-          <OrderBoard orders={filteredOrders} onSelect={openDrawer} />
+        {isLoading && normalizedOrders.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white py-16 text-center text-slate-500 font-medium">
+            Loading orders...
+          </div>
         ) : (
           <>
-<OrdersTable
-  orders={paginatedOrders}
-  deliveryBoys={deliveryBoys}
-  activeTab={activeTab}
-  selectedOrders={selectedOrders}
-  toggleOrder={toggleOrder}
-  toggleAll={toggleAll}
-  onView={openDrawer}
-  onAccept={(id) => updateStatus(id, "Preparing")}
-  onPreparing={(id) => updateStatus(id, "Preparing")}
-  onReady={(id) => updateStatus(id, "Ready")}
-  onAssign={handleAssignClick}
-  onDelivered={(id) => updateStatus(id, "Delivered")}
-  onCancel={(id) => updateStatus(id, "Cancelled")}
-/>
-            {activeTab === "completed" && !isPlusUser && (
-              <div className="relative mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
-                {/* Fake History Rows */}
-
-                <div className="pointer-events-none blur-[2px] opacity-40">
-                  {[1, 2, 3, 4, 5].map((item) => (
-                    <div
-                      key={item}
-                      className="flex items-center justify-between border-b border-slate-200 px-6 py-5"
-                    >
-                      <div>
-                        <div className="h-4 w-28 rounded bg-slate-300" />
-                        <div className="mt-2 h-3 w-20 rounded bg-slate-200" />
-                      </div>
-
-                      <div className="h-4 w-24 rounded bg-slate-300" />
-
-                      <div className="h-4 w-20 rounded bg-slate-300" />
-
-                      <div className="h-8 w-28 rounded-full bg-slate-300" />
-                    </div>
-                  ))}
-                </div>
-
-                {/* Lock Overlay */}
-
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/75 backdrop-blur-sm">
-                  <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 text-4xl">
-                    🔒
-                  </div>
-
-                  <h3 className="text-2xl font-bold text-slate-800">
-                    Older Orders Locked
-                  </h3>
-
-                  <p className="mt-3 max-w-md text-center text-slate-600">
-                    Order history beyond today is available on
-                    <span className="font-semibold text-[#16522d]">
-                      {" "}
-                      BizBite Plus
-                    </span>
-                    .
-                  </p>
-
-                  <button className="mt-6 rounded-xl bg-[#16522d] px-6 py-3 font-semibold text-white transition hover:bg-[#124324]">
-                    Upgrade Now
-                  </button>
-                </div>
-              </div>
-            )}
+            <OrdersTable
+              orders={paginatedOrders}
+              deliveryBoys={safeDeliveryBoysList}
+              activeTab={activeTab}
+              selectedOrders={selectedOrders}
+              toggleOrder={toggleOrder}
+              toggleAll={toggleAll}
+              onView={openDrawer}
+              onAccept={(id) => handleAcceptOrder(id)}
+              onPreparing={(id) => updateStatus(id, "Preparing")}
+              onReady={(id) => updateStatus(id, "Ready")}
+              onDelivery={(id) => handleAssignClick(id)}
+              onDelivered={(id) => updateStatus(id, "Delivered")}
+              onCancel={(id) => updateStatus(id, "Cancelled")}
+              onAssign={handleAssignClick}
+              onDelete={handleDeleteOrder}
+            />
             <OrderPagination
               currentPage={currentPage}
               totalPages={totalPages}
@@ -586,23 +466,30 @@ useEffect(() => {
           onClose={closeDrawer}
           onExpire={autoCancelOrder}
         />
-
         <ExportModal
           open={exportOpen}
           onClose={() => setExportOpen(false)}
           onExport={exportOrders}
         />
+        <AssignDeliveryModal
+          isOpen={assignModal}
+          onClose={() => setAssignModal(false)}
+          order={selectedOrder}
+          deliveryBoys={safeDeliveryBoysList.filter((boy) => {
+            // 1. Agar DB mein status field hi nahi hai, toh default show hone do
+            if (!boy.status && boy.isOnline === undefined) return true;
 
-
-<AssignDeliveryModal
-  isOpen={assignModal}
-  onClose={() => setAssignModal(false)}
-  order={selectedOrder}
-  deliveryBoys={deliveryBoys.filter(
-    (boy) => boy.status === "Online"
-  )}
-  onAssign={handleAssignDelivery}
-/>
+            // 2. Case-insensitive & multi-status match
+            const s = String(boy.status || "").toLowerCase();
+            return (
+              s === "online" ||
+              s === "active" ||
+              s === "available" ||
+              boy.isOnline === true
+            );
+          })}
+          onAssign={handleAssignDelivery}
+        />
       </div>
     </motion.div>
   );

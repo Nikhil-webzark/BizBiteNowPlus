@@ -161,6 +161,19 @@ const CouponCard = ({
 
             {coupon.expiry}
           </div>
+
+          {!expired && !used && (
+            <button
+              onClick={() => onApply?.(coupon)}
+              className="rounded-lg bg-green-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
+            >
+              Apply
+            </button>
+          )}
+
+          {used && (
+            <span className="text-xs font-semibold text-green-600">Applied</span>
+          )}
         </div>
       </div>
     </motion.div>

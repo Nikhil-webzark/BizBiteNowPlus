@@ -18,7 +18,7 @@ export default function EarningsSummaryCards({
       title: "Today's Earnings",
       value: formatCurrency(summary.todayEarnings),
       subtitle: "Revenue generated today",
-      growth: `+${summary.revenueGrowth}%`,
+     growth: `+${summary.revenueGrowth ?? 0}%`,
       icon: IndianRupee,
       iconColor: "text-violet-600",
       iconBg: "bg-violet-100",
