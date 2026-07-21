@@ -2,27 +2,29 @@ import { Clock3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import ReorderButton from "./ReorderButton";
-import { useCart } from "../../../context/CartContext";
+import useCartStore from "../../../api/stores/customerstore/cartStore";
 const OrderHistoryCard = ({ order, onView }) => {
   const navigate = useNavigate();
   if (!order) return null;
     const [reordering, setReordering] = useState(null);
   
-const { addItem } = useCart();
+const addToCart = useCartStore((state) => state.addToCart);
 
 const handleReorder = async (order) => {
   setReordering(order.id);
 
-  for (const item of order.items) {
-    await addItem({
-      ...item,
-      quantity: item.quantity,
-    });
+  try {
+    for (const item of order.items) {
+      await addToCart({
+        ...item,
+        quantity: item.quantity,
+      });
+    }
+
+    navigate("/customer/cart");
+  } finally {
+    setReordering(null);
   }
-
-  setReordering(null);
-
-  navigate("/customer/cart");
 };
   return (
     <div

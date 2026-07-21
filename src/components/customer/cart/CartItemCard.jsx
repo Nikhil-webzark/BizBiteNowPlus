@@ -4,24 +4,47 @@ import QuantitySelector from "./QuantitySelector";
 
 const CartItemCard = ({ item, onIncrease, onDecrease, onRemove }) => {
 const {
-  image,
   name,
-  restaurant,
-  description,
   price,
-  originalPrice,
   quantity,
-  total,
-  selectedVariant,
-  selectedAddons = [],
-  veg = true,
+  line_total,
+  image,
+  product_id,
+  variant,
+  addons = [],
 } = item;
+
+const product = product_id || {};
+
+const productImage =
+  image ||
+  product.image ||
+  product.images?.[0] ||
+  "/placeholder-food.png";
+
+const total = line_total ?? price * quantity;
+
+const originalPrice =
+  product.originalPrice ?? price;
+
+const restaurant =
+  product.restaurant_name || "";
+
+const description =
+  product.description || "";
+
+const veg =
+  product.veg ?? true;
 
   return (
     <article className="flex gap-3 p-4 transition-all duration-200 hover:bg-slate-50">
       {/* Product Image */}
       <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-        <img src={image} alt={name} className="h-full w-full object-cover" />
+        <img
+          src={productImage}
+          alt={name}
+          className="h-full w-full object-cover"
+        />
       </div>
 
       {/* Details */}

@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 
-import { useCart } from "../../context/CartContext";
+import useCartStore from "../../api/stores/customerstore/cartStore";
 
 import HeroBanner from "../../components/customer/hero/HeroBanner";
 
@@ -43,38 +43,41 @@ const [comboMealProducts, setComboMealProducts] = useState([]);
   const [recentProducts, setRecentProducts] = useState([]);
 
   const [offerProducts, setOfferProducts] = useState([]);
-  const { cartItems, addItem, updateItem, removeItem } = useCart();
+ const cartItems = useCartStore((state) => state.items);
+const addToCart = useCartStore((state) => state.addToCart);
+const updateCartItem = useCartStore((state) => state.updateCartItem);
+const removeCartItem = useCartStore((state) => state.removeCartItem);
   const {
   favouriteProducts,
   toggleFavourite,
 } = useFavourite();
-  const increaseQuantity = (product) => {
-    const item = cartItems.find(
-      (cartItem) => cartItem.productId === product.id,
-    );
+const increaseQuantity = async (product) => {
+  const item = cartItems.find(
+    (cartItem) => cartItem.productId === product.id
+  );
 
-    if (!item) {
-      addItem(product);
-      return;
-    }
+  if (!item) {
+    await addToCart(product);
+    return;
+  }
 
-    updateItem(item.id, item.quantity + 1);
-  };
+  await updateCartItem(item.id, item.quantity + 1);
+};
 
-  const decreaseQuantity = (product) => {
-    const item = cartItems.find(
-      (cartItem) => cartItem.productId === product.id,
-    );
+const decreaseQuantity = async (product) => {
+  const item = cartItems.find(
+    (cartItem) => cartItem.productId === product.id
+  );
 
-    if (!item) return;
+  if (!item) return;
 
-    if (item.quantity === 1) {
-      removeItem(item.id);
-      return;
-    }
+  if (item.quantity === 1) {
+    await removeCartItem(item.id);
+    return;
+  }
 
-    updateItem(item.id, item.quantity - 1);
-  };
+  await updateCartItem(item.id, item.quantity - 1);
+};
   const loadData = async () => {
     setLoading(true);
 
@@ -223,7 +226,7 @@ const menu = menuRes.data?.data || [];
                   navigate(`/customer/product/${product.id}`)
                 }
                 onFavourite={handleFavourite}
-                onAdd={addItem}
+                onAdd={addToCart}
                 onIncrease={increaseQuantity}
                 onDecrease={decreaseQuantity}
               />
@@ -251,7 +254,7 @@ const menu = menuRes.data?.data || [];
                 navigate(`/customer/product/${product.id}`)
               }
               onFavourite={handleFavourite}
-              onAdd={addItem}
+              onAdd={addToCart}
               onIncrease={increaseQuantity}
               onDecrease={decreaseQuantity}
             />
@@ -272,7 +275,7 @@ const menu = menuRes.data?.data || [];
         navigate(`/customer/product/${product.id}`)
       }
       onFavourite={handleFavourite}
-      onAdd={addItem}
+      onAdd={addToCart}
       onIncrease={increaseQuantity}
       onDecrease={decreaseQuantity}
     />
@@ -294,7 +297,7 @@ const menu = menuRes.data?.data || [];
         navigate(`/customer/product/${product.id}`)
       }
       onFavourite={handleFavourite}
-      onAdd={addItem}
+      onAdd={addToCart}
       onIncrease={increaseQuantity}
       onDecrease={decreaseQuantity}
     />
@@ -316,7 +319,7 @@ const menu = menuRes.data?.data || [];
                 navigate(`/customer/product/${product.id}`)
               }
               onFavourite={handleFavourite}
-              onAdd={addItem}
+              onAdd={addToCart}
               onIncrease={increaseQuantity}
               onDecrease={decreaseQuantity}
             />

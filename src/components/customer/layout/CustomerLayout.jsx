@@ -5,14 +5,24 @@ import DesktopSidebar from "./DesktopSidebar";
 import CustomerHeader from "./CustomerHeader";
 import BottomNavigation from "./BottomNavigation";
 import FloatingCartButton from "./FloatingCartButton";
-
-import { useCart } from "../../../context/CartContext";
+import useCartStore from "../../../api/stores/customerstore/cartStore";
 
 import { logoutCustomer } from "../../../api/customer/authApi";
-import { getStore } from "../../../api/customerApi";
+
 
 const CustomerLayout = () => {
-  const { totalItems, totalPrice } = useCart();
+  const cartItems = useCartStore((state) => state.items);
+
+const totalItems = cartItems.reduce(
+  (total, item) => total + item.quantity,
+  0
+);
+
+const totalPrice = cartItems.reduce(
+  (total, item) =>
+    total + (item.line_total ?? item.price * item.quantity),
+  0
+);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -135,7 +145,10 @@ const CustomerLayout = () => {
         </main>
 
         {!hideFloatingCart && (
-          <FloatingCartButton totalItems={totalItems} totalPrice={totalPrice} />
+          <FloatingCartButton
+            totalItems={totalItems}
+            totalPrice={totalPrice}
+          />
         )}
 
         <BottomNavigation />
