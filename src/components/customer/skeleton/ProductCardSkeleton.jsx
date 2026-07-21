@@ -5,12 +5,12 @@ const ProductCardSkeleton = () => {
     <div
       className="
         flex
-        h-[320px]
-        w-[170px]
+        h-[370px]
+        w-[250px]
         flex-shrink-0
         flex-col
         overflow-hidden
-        rounded-[14px]
+        rounded-[24px]
         border
         border-slate-200
         bg-white

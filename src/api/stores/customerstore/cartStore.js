@@ -77,36 +77,48 @@ const useCartStore = create((set, get) => ({
   /*                                ADD TO CART                                 */
   /* -------------------------------------------------------------------------- */
 
-  async addToCart(payload) {
-    try {
-      set({
-        updating: true,
-        error: null,
-      });
+async addToCart(product) {
+  try {
+    set({
+      updating: true,
+      error: null,
+    });
 
-      const response = await addToCart(payload);
+    const payload = {
+      product_id: product._id || product.id,
+      quantity: product.quantity || 1,
+    };
 
-      const cart =
-        response?.data ??
-        response?.cart ??
-        response;
+    console.log("Sending payload:", payload);
 
-      set({
-        cart,
-        items: cart?.items ?? [],
-        updating: false,
-      });
+const response = await addToCart(payload);
 
-      return response;
-    } catch (error) {
-      set({
-        updating: false,
-        error,
-      });
+console.log("API response:", response);
 
-      throw error;
-    }
-  },
+const cart =
+  response?.cart ??
+  response?.data?.cart ??
+  response?.data ??
+  response;
+
+console.log("Cart:", cart);
+
+set({
+  cart,
+  items: cart?.items ?? [],
+  updating: false,
+});
+
+    return response;
+  } catch (error) {
+    set({
+      updating: false,
+      error,
+    });
+
+    throw error;
+  }
+},
 
   /* -------------------------------------------------------------------------- */
   /*                              UPDATE QUANTITY                               */
@@ -212,6 +224,22 @@ const useCartStore = create((set, get) => ({
       throw error;
     }
   },
+  get totalItems() {
+  return get().items.reduce(
+    (total, item) => total + item.quantity,
+    0
+  );
+},
+
+get totalPrice() {
+  return get().items.reduce(
+    (total, item) =>
+      total +
+      (item.price || item.product?.price || 0) *
+        item.quantity,
+    0
+  );
+},
 }));
 
 export default useCartStore;

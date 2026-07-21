@@ -9,9 +9,9 @@ const MenuGridSkeleton = ({
         hidden
         lg:grid
 
-        grid-cols-4
-        xl:grid-cols-5
-        2xl:grid-cols-6
+        grid-cols-3
+        xl:grid-cols-4
+        2xl:grid-cols-5
 
         gap-6
       "

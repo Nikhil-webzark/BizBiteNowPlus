@@ -51,33 +51,33 @@ const removeCartItem = useCartStore((state) => state.removeCartItem);
   favouriteProducts,
   toggleFavourite,
 } = useFavourite();
-  const increaseQuantity = (product) => {
-    const item = cartItems.find(
-      (cartItem) => cartItem.productId === product.id,
-    );
+const increaseQuantity = async (product) => {
+  const item = cartItems.find(
+    (cartItem) => cartItem.productId === product.id
+  );
 
-    if (!item) {
-      addItem(product);
-      return;
-    }
+  if (!item) {
+    await addToCart(product);
+    return;
+  }
 
-    updateItem(item.id, item.quantity + 1);
-  };
+  await updateCartItem(item.id, item.quantity + 1);
+};
 
-  const decreaseQuantity = (product) => {
-    const item = cartItems.find(
-      (cartItem) => cartItem.productId === product.id,
-    );
+const decreaseQuantity = async (product) => {
+  const item = cartItems.find(
+    (cartItem) => cartItem.productId === product.id
+  );
 
-    if (!item) return;
+  if (!item) return;
 
-    if (item.quantity === 1) {
-      removeItem(item.id);
-      return;
-    }
+  if (item.quantity === 1) {
+    await removeCartItem(item.id);
+    return;
+  }
 
-    updateItem(item.id, item.quantity - 1);
-  };
+  await updateCartItem(item.id, item.quantity - 1);
+};
   const loadData = async () => {
     setLoading(true);
 
@@ -226,7 +226,7 @@ const menu = menuRes.data?.data || [];
                   navigate(`/customer/product/${product.id}`)
                 }
                 onFavourite={handleFavourite}
-                onAdd={addItem}
+                onAdd={addToCart}
                 onIncrease={increaseQuantity}
                 onDecrease={decreaseQuantity}
               />
@@ -254,7 +254,7 @@ const menu = menuRes.data?.data || [];
                 navigate(`/customer/product/${product.id}`)
               }
               onFavourite={handleFavourite}
-              onAdd={addItem}
+              onAdd={addToCart}
               onIncrease={increaseQuantity}
               onDecrease={decreaseQuantity}
             />
@@ -275,7 +275,7 @@ const menu = menuRes.data?.data || [];
         navigate(`/customer/product/${product.id}`)
       }
       onFavourite={handleFavourite}
-      onAdd={addItem}
+      onAdd={addToCart}
       onIncrease={increaseQuantity}
       onDecrease={decreaseQuantity}
     />
@@ -297,7 +297,7 @@ const menu = menuRes.data?.data || [];
         navigate(`/customer/product/${product.id}`)
       }
       onFavourite={handleFavourite}
-      onAdd={addItem}
+      onAdd={addToCart}
       onIncrease={increaseQuantity}
       onDecrease={decreaseQuantity}
     />
@@ -319,7 +319,7 @@ const menu = menuRes.data?.data || [];
                 navigate(`/customer/product/${product.id}`)
               }
               onFavourite={handleFavourite}
-              onAdd={addItem}
+              onAdd={addToCart}
               onIncrease={increaseQuantity}
               onDecrease={decreaseQuantity}
             />

@@ -25,13 +25,14 @@ import {
 
 import useOrderStore from "../../api/stores/customerstore/orderStore";
 
-import {
-  useCart,
-} from "../../context/CartContext";
+import useCartStore from "../../api/stores/customerstore/cartStore";
 
 const Checkout = () => {
   const navigate = useNavigate();
 
+  const cartItems = useCartStore((state) => state.items);
+const clearCart = useCartStore((state) => state.clearCart);
+const [selectedCoupon, setSelectedCoupon] = useState(null);
 const {
   createOrder,
   initiateCheckout,
@@ -185,10 +186,8 @@ const {
 
   const orderSummary =
     useMemo(() => {
-      const subtotal =
-        cartItems.reduce(
-          (sum, item) =>
-            sum + item.total,
+        const subtotal = cartItems.reduce(
+          (sum, item) => sum + (item.line_total ?? item.price * item.quantity),
           0
         );
 
@@ -302,34 +301,13 @@ const {
         
 
         const payload = {
-          items:
-            cartItems.map(
-              (item) => ({
-                productId:
-                  item.productId,
-
-                quantity:
-                  item.quantity,
-
-                variantId:
-                  item
-                    .selectedVariant
-                    ?.id ??
-                  null,
-
-                addonIds:
-                  item.selectedAddons?.map(
-                    (
-                      addon
-                    ) =>
-                      addon.id
-                  ) ?? [],
-
-                note:
-                  item.note ??
-                  "",
-              })
-            ),
+          items: cartItems.map((item) => ({
+  productId: item.product_id,
+  quantity: item.quantity,
+  variantName: item.variant?.name ?? null,
+  addonNames: item.addons?.map((addon) => addon.name) ?? [],
+  note: item.special_instructions ?? "",
+})),
 
           addressId:
             selectedAddress.id,
@@ -352,13 +330,14 @@ const {
           notes: "",
         };
 
+
         const response = await createOrder(payload);
 
         setSelectedCoupon(
           null
         );
 
-        await refreshCart();
+        await clearCart();
 
 navigate(
   `/customer/orders/${

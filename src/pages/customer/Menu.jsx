@@ -12,7 +12,7 @@ import MenuListCard from "../../components/customer/menu/MenuListCard";
 import CompactCategoryTabs from "../../components/customer/menu/CompactCategoryTabs";
 import CompactSortDropdown from "../../components/customer/menu/CompactSortDropdown";
 import CompactVegToggle from "../../components/customer/menu/CompactVegToggle";
-import { useCart } from "../../context/CartContext";
+import useCartStore from "../../api/stores/customerstore/cartStore";
 import { Bell } from "lucide-react";
 import MenuPageSkeleton from "../../components/customer/skeleton/MenuPageSkeleton";
 import { useFavourite } from "../../context/FavouriteContext";
@@ -35,7 +35,10 @@ const normalizeProduct = (p) => ({
 });
 
 const Menu = () => {
-  const { cartItems, addItem, updateItem } = useCart();
+  const cartItems = useCartStore((state) => state.items);
+const addToCart = useCartStore((state) => state.addToCart);
+const updateCartItem = useCartStore((state) => state.updateCartItem);
+const removeCartItem = useCartStore((state) => state.removeCartItem);
   const navigate = useNavigate();
   const { favouriteProducts, toggleFavourite } = useFavourite();
 
@@ -128,8 +131,10 @@ const Menu = () => {
     return products;
   }, [normalizedProducts, vegType, filters, sortBy]);
 
-  const getCartItem = (productId) =>
-    cartItems.find((item) => item.productId === productId);
+ const getCartItem = (productId) =>
+  cartItems.find(
+    (item) => (item.product_id?._id || item.product_id) === productId
+  );
 
   if (loading) {
     return <MenuPageSkeleton />;
@@ -232,12 +237,37 @@ const Menu = () => {
                     quantity={getCartItem(product.id)?.quantity ?? 0}
                     isFavourite={favouriteProducts.some((item) => item.id === product.id)}
                     onFavourite={() => toggleFavourite(product)}
-                    onAdd={() => addItem(product, 1)}
-                    onIncrease={() => addItem(product, 1)}
-                    onDecrease={() => {
-                      const item = getCartItem(product.id);
-                      if (item) updateItem(item.id, item.quantity - 1);
-                    }}
+onAdd={() => addToCart({
+  product_id: product._id || product.id,
+  quantity: 1,
+})}
+
+onIncrease={async () => {
+  const item = getCartItem(product.id);
+
+ if (!item) {
+  await addToCart({
+    product_id: product._id || product.id,
+    quantity: 1,
+  });
+  return;
+}
+
+  await updateCartItem(item.id, item.quantity + 1);
+}}
+
+onDecrease={async () => {
+  const item = getCartItem(product.id);
+
+  if (!item) return;
+
+  if (item.quantity <= 1) {
+    await removeCartItem(item.id);
+    return;
+  }
+
+  await updateCartItem(item.id, item.quantity - 1);
+}}
                     onClick={() => navigate(`/customer/product/${product.id}`)}
                   />
                 ))}
@@ -252,12 +282,31 @@ const Menu = () => {
                       quantity={getCartItem(product.id)?.quantity ?? 0}
                       isFavourite={favouriteProducts.some((item) => item.id === product.id)}
                       onFavourite={() => toggleFavourite(product)}
-                      onAdd={() => addItem(product, 1)}
-                      onIncrease={() => addItem(product, 1)}
-                      onDecrease={() => {
-                        const item = getCartItem(product.id);
-                        if (item) updateItem(item.id, item.quantity - 1);
-                      }}
+onAdd={() => addToCart(product)}
+
+onIncrease={async () => {
+  const item = getCartItem(product.id);
+
+  if (!item) {
+    await addToCart(product);
+    return;
+  }
+
+  await updateCartItem(item.id, item.quantity + 1);
+}}
+
+onDecrease={async () => {
+  const item = getCartItem(product.id);
+
+  if (!item) return;
+
+  if (item.quantity <= 1) {
+    await removeCartItem(item.id);
+    return;
+  }
+
+  await updateCartItem(item.id, item.quantity - 1);
+}}
                       onClick={() => navigate(`/customer/product/${product.id}`)}
                     />
                   ))}
