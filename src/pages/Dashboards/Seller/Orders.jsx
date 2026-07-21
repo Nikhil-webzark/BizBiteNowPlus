@@ -1,330 +1,496 @@
-import { useEffect, useState } from "react";
-import {
-  ShoppingBag,
-  Search,
-  Filter,
-  Eye,
-  Truck,
-  CheckCircle,
-  XCircle,
-  Clock,
-} from "lucide-react";
-import API from "../../../services/api";
+import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
+
+// Core UI Components
+import OrdersHeader from "../../../components/orders/OrdersHeader";
+import OrderStats from "../../../components/orders/OrderStats";
+import OrdersTabs from "../../../components/orders/OrderTabs";
+import OrderFilters from "../../../components/orders/OrderFilters";
+import OrdersTable from "../../../components/orders/OrdersTable";
+import OrderPagination from "../../../components/orders/OrderPagination";
+import OrderDrawer from "../../../components/orders/OrderDrawer";
+import BulkActions from "../../../components/orders/BulkActions";
+import ExportModal from "../../../components/orders/ExportModal";
+import AssignDeliveryModal from "../../../components/delivery/AssignDeliveryModal";
+
+import useOrderStore from "../../../store/orderStore";
+import axiosInstance from "../../../api/axios";
+
+// 🆕 5-step seller-side tracking, must match Order model's delivery_status enum
+const STEP_ORDER = ["Pending", "Preparing", "Ready", "Out for Delivery", "Delivered"];
 
 export default function Orders() {
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [deliveryBoys, setDeliveryBoys] = useState([]);
+  const {
+    orders,
+    isLoading,
+    error,
+    fetchOrders,
+    updateOrderStatus,
+    deleteOrder,
+    assignOrder,
+  } = useOrderStore();
+
+  // Normalize backend order shape -> UI required shape
+  const normalizedOrders = useMemo(() => {
+    return (orders || []).map((o) => {
+      const backendStatus = String(o.delivery_status || o.status || "Pending").trim();
+      const stepIndex = STEP_ORDER.indexOf(backendStatus); // -1 for Cancelled / Ready for Pickup / Picked Up
+
+      return {
+        ...o,
+        id: o._id || o.id,
+        orderId:
+          o.razorpay_order_id || o._id?.toString().slice(-6).toUpperCase() || "ORD-TX",
+        customer: o.customer_name || "Guest Customer",
+        phone: o.customer_phone || "N/A",
+        address:
+          typeof o.delivery_address === "object"
+            ? o.delivery_address?.address_line
+            : o.delivery_address || "",
+        items: o.items || [],
+        amount: o.total_amount ?? o.amount ?? 0,
+        payment: o.payment_method || "COD",
+        status: backendStatus,
+        // 1 = Pending ... 5 = Delivered, matches STEP_ORDER (1-indexed for the UI)
+        trackingStep: stepIndex >= 0 ? stepIndex + 1 : 1,
+        createdAt: o.createdAt || new Date().toISOString(),
+        deliveredAt: o.updatedAt,
+        deliveryBoy: o.delivery_boy_name || "Unassigned",
+        deliveryBoyId: o.delivery_boy_id || null,
+      };
+    });
+  }, [orders]);
+
+  const [activeTab, setActiveTab] = useState("new");
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("All");
+  const [payment, setPayment] = useState("All");
+  const [sort, setSort] = useState("Newest");
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedOrders, setSelectedOrders] = useState([]);
+  const [boardView, setBoardView] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [assignModal, setAssignModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  // Fetch Orders and Delivery Personnel
+  // Delivery boys — Array initialized
+  const [deliveryBoys, setDeliveryBoys] = useState([]);
+
+  // Fetch Delivery Boys with Array Validation Guard
   useEffect(() => {
-    const fetchOrdersData = async () => {
+    let isMounted = true;
+    const loadDeliveryBoys = async () => {
       try {
-        setLoading(true);
-        const [ordersRes, boysRes] = await Promise.all([
-          API.get("/order/seller/all"),
-          API.get("/delivery/all").catch(() => ({ data: { deliveryBoys: [] } })),
-        ]);
+        const res = await axiosInstance.get("/deliveryBoy/list");
 
-        const rawOrders = ordersRes.data.orders || ordersRes.data.data || [];
-        setOrders(Array.isArray(rawOrders) ? rawOrders : []);
+        // Handle varied backend response formats safely
+        const rawData =
+          res.data?.data ||
+          res.data?.deliveryBoys ||
+          res.data?.deliveryBoy ||
+          res.data;
 
-        const rawBoys = boysRes.data.deliveryBoys || boysRes.data.data || [];
-        setDeliveryBoys(Array.isArray(rawBoys) ? rawBoys : []);
+        const list = Array.isArray(rawData) ? rawData : [];
+
+        if (isMounted) {
+          setDeliveryBoys(list);
+          localStorage.setItem("deliveryBoys", JSON.stringify(list));
+        }
       } catch (err) {
-        console.error("Error fetching orders:", err);
-      } finally {
-        setLoading(false);
+        console.error("Failed to fetch delivery partners list:", err);
+        if (isMounted) setDeliveryBoys([]);
       }
     };
 
-    fetchOrdersData();
+    loadDeliveryBoys();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Status Change Handler
-  const handleStatusUpdate = async (orderId, newStatus) => {
-    try {
-      await API.put(`/order/status/${orderId}`, { status: newStatus });
-      setOrders((prev) =>
-        prev.map((ord) =>
-          (ord._id || ord.id) === orderId ? { ...ord, status: newStatus } : ord
-        )
-      );
-      if (selectedOrder && (selectedOrder._id || selectedOrder.id) === orderId) {
-        setSelectedOrder((prev) => ({ ...prev, status: newStatus }));
+  useEffect(() => {
+    let isMounted = true;
+    Promise.resolve().then(() => {
+      if (isMounted) {
+        fetchOrders().catch((err) => console.error("Failed to fetch orders:", err));
       }
-    } catch (err) {
-      alert(err?.response?.data?.message || "Failed to update order status");
-    }
-  };
+    });
+    return () => {
+      isMounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Delivery Boy Assignment Handler
-  const handleAssignDelivery = async (orderId, deliveryBoyId) => {
-    try {
-      await API.put(`/order/assign-delivery/${orderId}`, { deliveryBoyId });
-      setOrders((prev) =>
-        prev.map((ord) =>
-          (ord._id || ord.id) === orderId ? { ...ord, deliveryBoyId } : ord
-        )
+  // Filter pipeline
+  const filteredOrders = useMemo(() => {
+    let data = [...normalizedOrders];
+
+    if (activeTab === "new") {
+      data = data.filter((order) => {
+        const s = order.status.toUpperCase();
+        return s !== "DELIVERED" && s !== "CANCELLED";
+      });
+    }
+
+    if (activeTab === "completed") {
+      data = data.filter((order) => {
+        const s = order.status.toUpperCase();
+        return s === "DELIVERED" || s === "CANCELLED";
+      });
+    }
+
+    if (search.trim()) {
+      const value = search.toLowerCase();
+      data = data.filter(
+        (order) =>
+          order.orderId?.toLowerCase().includes(value) ||
+          order.customer?.toLowerCase().includes(value) ||
+          order.phone?.includes(value),
       );
-      alert("Delivery partner assigned successfully!");
-    } catch (err) {
-      alert(err?.response?.data?.message || "Failed to assign delivery partner");
     }
-  };
 
-  // Filtered Orders Calculation
-  const filteredOrders = orders.filter((order) => {
-    const orderId = String(order._id || order.id || "").toLowerCase();
-    const customerName = String(
-      order.user?.name || order.customerName || ""
-    ).toLowerCase();
-    const matchesSearch =
-      orderId.includes(searchTerm.toLowerCase()) ||
-      customerName.includes(searchTerm.toLowerCase());
+    if (status !== "All") data = data.filter((order) => order.status === status);
+    if (payment !== "All") data = data.filter((order) => order.payment === payment);
 
-    const matchesStatus =
-      statusFilter === "all" ||
-      String(order.status).toLowerCase() === statusFilter.toLowerCase();
-
-    return matchesSearch && matchesStatus;
-  });
-
-  const getStatusBadge = (status) => {
-    const st = String(status).toLowerCase();
-    switch (st) {
-      case "delivered":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
-            <CheckCircle size={14} /> Delivered
-          </span>
-        );
-      case "cancelled":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-800">
-            <XCircle size={14} /> Cancelled
-          </span>
-        );
-      case "out_for_delivery":
-      case "dispatched":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">
-            <Truck size={14} /> Out For Delivery
-          </span>
-        );
+    switch (sort) {
+      case "Highest Amount":
+        data.sort((a, b) => b.amount - a.amount);
+        break;
+      case "Lowest Amount":
+        data.sort((a, b) => a.amount - b.amount);
+        break;
+      case "Oldest":
+        data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        break;
       default:
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
-            <Clock size={14} /> Pending
-          </span>
-        );
+        data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+
+    return data;
+  }, [normalizedOrders, activeTab, search, status, payment, sort]);
+
+  // Dashboard metrics
+  const stats = useMemo(() => {
+    return {
+      total: normalizedOrders.length,
+      pending: normalizedOrders.filter((o) => o.status.toUpperCase() === "PENDING")
+        .length,
+      preparing: normalizedOrders.filter((o) => o.status.toUpperCase() === "PREPARING")
+        .length,
+      delivered: normalizedOrders.filter((o) => o.status.toUpperCase() === "DELIVERED")
+        .length,
+      revenue: normalizedOrders
+        .filter((o) => o.status.toUpperCase() === "DELIVERED")
+        .reduce((sum, order) => sum + (order.amount || 0), 0),
+    };
+  }, [normalizedOrders]);
+
+  const newOrdersCount = useMemo(() => {
+    return normalizedOrders.filter((o) => {
+      const s = o.status.toUpperCase();
+      return s !== "DELIVERED" && s !== "CANCELLED";
+    }).length;
+  }, [normalizedOrders]);
+
+  const completedOrdersCount = useMemo(() => {
+    return normalizedOrders.filter((o) => {
+      const s = o.status.toUpperCase();
+      return s === "DELIVERED" || s === "CANCELLED";
+    }).length;
+  }, [normalizedOrders]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / rowsPerPage));
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.resolve().then(() => {
+      if (isMounted && currentPage > totalPages) {
+        setCurrentPage(totalPages);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.resolve().then(() => {
+      if (isMounted) {
+        setCurrentPage(1);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTab, search, status, payment, sort]);
+
+  const paginatedOrders = useMemo(() => {
+    return filteredOrders.slice(
+      (currentPage - 1) * rowsPerPage,
+      currentPage * rowsPerPage,
+    );
+  }, [filteredOrders, currentPage, rowsPerPage]);
+
+  const openDrawer = (order) => {
+    setSelectedOrder(order);
+    setDrawerOpen(true);
+  };
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setSelectedOrder(null);
+  };
+
+  const toggleOrder = (id) => {
+    setSelectedOrders((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  };
+
+  const toggleAll = () => {
+    if (selectedOrders.length === paginatedOrders.length) {
+      setSelectedOrders([]);
+      return;
+    }
+    setSelectedOrders(paginatedOrders.map((order) => order.id));
+  };
+
+  const updateStatus = async (id, newStatus) => {
+    try {
+      await updateOrderStatus(id, newStatus);
+      await fetchOrders();
+    } catch (err) {
+      console.error("Status update failed:", err);
+      alert(err.response?.data?.message || "Unable to update order status");
     }
   };
+
+  // 🆕 New order comes in as "Pending" -> seller Accepts, starting the
+  // 5-step tracking at "Preparing". Reject reuses the existing onCancel
+  // path below since OrderActionModal only exposes cancelOrder, not a
+  // separate reject action — same underlying "Cancelled" status either way.
+  const handleAcceptOrder = (id) => updateStatus(id, "Preparing");
+
+  const bulkUpdate = async (newStatus) => {
+    try {
+      await Promise.all(selectedOrders.map((id) => updateOrderStatus(id, newStatus)));
+      await fetchOrders();
+    } catch (err) {
+      console.error("Bulk update failed:", err);
+      alert(err.response?.data?.message || "Unable to update selected orders");
+    } finally {
+      setSelectedOrders([]);
+    }
+  };
+
+  // 🚀 WhatsApp Redirection on Assign Click
+  const handleAssignDelivery = async (boyId) => {
+    const safeBoys = Array.isArray(deliveryBoys) ? deliveryBoys : [];
+    const boy = safeBoys.find((item) => item.id === boyId || item._id === boyId);
+    if (!boy || !selectedOrder) return;
+
+    try {
+      const res = await assignOrder(selectedOrder.id, boyId);
+
+      // 📲 Auto open WhatsApp with pre-filled details & location
+      const waUrl = res?.whatsappUrl || res?.data?.whatsappUrl;
+      if (waUrl) {
+        window.open(waUrl, "_blank");
+      }
+
+      setDeliveryBoys((prev) =>
+        (Array.isArray(prev) ? prev : []).map((item) =>
+          item.id === boyId || item._id === boyId
+            ? { ...item, assignedOrders: (item.assignedOrders || 0) + 1 }
+            : item,
+        ),
+      );
+
+      // Assigning a delivery partner IS the "Out for Delivery" step —
+      // move the order forward unless the backend already did this.
+      if (selectedOrder.status !== "Out for Delivery") {
+        try {
+          await updateOrderStatus(selectedOrder.id, "Out for Delivery");
+        } catch (statusErr) {
+          console.error("Failed to advance status after assign:", statusErr);
+        }
+      }
+
+      setAssignModal(false);
+      setSelectedOrder(null);
+      await fetchOrders();
+    } catch (err) {
+      console.error("Assign order failed:", err);
+      alert(err.response?.data?.message || "Unable to assign order");
+    }
+  };
+
+  const handleAssignClick = (orderOrId) => {
+    const order =
+      orderOrId && typeof orderOrId === "object"
+        ? orderOrId
+        : normalizedOrders.find((o) => o.id === orderOrId);
+    if (!order) return;
+    setSelectedOrder(order);
+    setAssignModal(true);
+  };
+
+  const handleDeleteOrder = async (id) => {
+    if (!confirm("Delete this order permanently?")) return;
+
+    try {
+      await deleteOrder(id);
+    } catch (err) {
+      console.error("Delete order failed:", err);
+      alert(err.response?.data?.message || "Unable to delete order");
+    }
+  };
+
+  const handleReset = () => {
+    setSearch("");
+    setStatus("All");
+    setPayment("All");
+    setSort("Newest");
+    setCurrentPage(1);
+  };
+
+  const exportOrders = (month) => {
+    console.log("Export PDF:", month);
+  };
+
+  const autoCancelOrder = (order) => {
+    updateStatus(order.id, "Cancelled");
+  };
+
+  // Safe delivery boys array reference
+  const safeDeliveryBoysList = Array.isArray(deliveryBoys) ? deliveryBoys : [];
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Orders Management</h1>
-          <p className="text-sm text-slate-500">
-            Track, assign, and manage customer orders seamlessly.
-          </p>
-        </div>
-      </div>
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="space-y-6"
+    >
+      <div className="space-y-8">
+        <OrdersHeader
+          totalOrders={normalizedOrders.length}
+          boardView={boardView}
+          setBoardView={setBoardView}
+          onRefresh={fetchOrders}
+          onExport={() => setExportOpen(true)}
+        />
 
-      {/* Filters & Search Bar */}
-      <div className="flex flex-col gap-4 rounded-2xl bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1">
-          <Search
-            size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-          />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by Order ID or Customer Name..."
-            className="h-10 w-full rounded-xl border border-slate-200 pl-10 pr-4 text-sm outline-none focus:border-emerald-600"
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Filter size={18} className="text-slate-400" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-10 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"
-          >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="dispatched">Out For Delivery</option>
-            <option value="delivered">Delivered</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Orders Table */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        {loading ? (
-          <div className="p-12 text-center font-medium text-slate-500">
-            Loading orders list...
-          </div>
-        ) : filteredOrders.length === 0 ? (
-          <div className="p-12 text-center font-medium text-slate-500">
-            No orders found.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-600">
-              <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
-                <tr>
-                  <th className="px-6 py-4">Order Details</th>
-                  <th className="px-6 py-4">Customer</th>
-                  <th className="px-6 py-4">Amount</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Assign Delivery</th>
-                  <th className="px-6 py-4 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredOrders.map((order) => {
-                  const orderId = order._id || order.id;
-
-                  return (
-                    <tr key={orderId} className="hover:bg-slate-50/50">
-                      {/* Order Details */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-                            <ShoppingBag size={18} />
-                          </div>
-                          <div>
-                            <span className="block font-bold text-slate-900">
-                              #{String(orderId).slice(-6).toUpperCase()}
-                            </span>
-                            <span className="text-xs text-slate-400">
-                              {order.createdAt
-                                ? new Date(order.createdAt).toLocaleDateString("en-IN")
-                                : "Today"}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Customer Info */}
-                      <td className="px-6 py-4">
-                        <span className="block font-semibold text-slate-800">
-                          {order.user?.name || order.customerName || "Customer"}
-                        </span>
-                        <span className="text-xs text-slate-500">
-                          {order.user?.phone || order.phone || "No Contact"}
-                        </span>
-                      </td>
-
-                      {/* Total Amount */}
-                      <td className="px-6 py-4 font-bold text-slate-900">
-                        ₹{order.totalAmount || order.price || 0}
-                      </td>
-
-                      {/* Status */}
-                      <td className="px-6 py-5 whitespace-nowrap">
-                        {getStatusBadge(order.status)}
-                      </td>
-
-                      {/* Assign Delivery Partner */}
-                      <td className="px-6 py-4">
-                        <select
-                          value={order.deliveryBoyId || ""}
-                          onChange={(e) => handleAssignDelivery(orderId, e.target.value)}
-                          className="h-9 w-40 rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-emerald-600"
-                        >
-                          <option value="">Select Partner</option>
-                          {deliveryBoys.map((boy) => (
-                            <option key={boy._id || boy.id} value={boy._id || boy.id}>
-                              {boy.name}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-6 py-4 text-center">
-                        <button
-                          onClick={() => setSelectedOrder(order)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                        >
-                          <Eye size={14} /> View
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
           </div>
         )}
-      </div>
 
-      {/* Order Details Modal */}
-      {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg space-y-5 rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="text-lg font-bold text-slate-900">
-                Order Details (#{String(selectedOrder._id || selectedOrder.id).slice(-6).toUpperCase()})
-              </h3>
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                ✕
-              </button>
-            </div>
+        <OrderStats stats={stats} />
 
-            <div className="space-y-3 text-sm text-slate-700">
-              <div>
-                <span className="block text-xs font-semibold text-slate-400">Customer Name</span>
-                <span>{selectedOrder.user?.name || selectedOrder.customerName || "N/A"}</span>
-              </div>
-              <div>
-                <span className="block text-xs font-semibold text-slate-400">Address</span>
-                <span>{selectedOrder.address || "No address specified"}</span>
-              </div>
-              <div>
-                <span className="block text-xs font-semibold text-slate-400">Status Update</span>
-                <div className="mt-2 flex gap-2">
-                  <button
-                    onClick={() => handleStatusUpdate(selectedOrder._id || selectedOrder.id, "dispatched")}
-                    className="rounded-lg bg-blue-100 px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-200"
-                  >
-                    Set Out For Delivery
-                  </button>
-                  <button
-                    onClick={() => handleStatusUpdate(selectedOrder._id || selectedOrder.id, "delivered")}
-                    className="rounded-lg bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-200"
-                  >
-                    Set Delivered
-                  </button>
-                </div>
-              </div>
-            </div>
+        <OrdersTabs
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          newOrders={newOrdersCount}
+          completedOrders={completedOrdersCount}
+        />
 
-            <div className="flex justify-end pt-3">
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="rounded-xl border px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-              >
-                Close
-              </button>
-            </div>
+        <OrderFilters
+          search={search}
+          setSearch={setSearch}
+          status={status}
+          setStatus={setStatus}
+          payment={payment}
+          setPayment={setPayment}
+          sort={sort}
+          setSort={setSort}
+          onReset={handleReset}
+        />
+
+        <BulkActions
+          selectedCount={selectedOrders.length}
+          onClear={() => setSelectedOrders([])}
+          onAccept={() => bulkUpdate("Preparing")}
+          onPreparing={() => bulkUpdate("Preparing")}
+          onReady={() => bulkUpdate("Ready")}
+          onDelivery={() => bulkUpdate("Out for Delivery")}
+          onDelivered={() => bulkUpdate("Delivered")}
+          onCancel={() => bulkUpdate("Cancelled")}
+        />
+
+        {isLoading && normalizedOrders.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white py-16 text-center text-slate-500 font-medium">
+            Loading orders...
           </div>
-        </div>
-      )}
-    </div>
+        ) : (
+          <>
+            <OrdersTable
+              orders={paginatedOrders}
+              deliveryBoys={safeDeliveryBoysList}
+              activeTab={activeTab}
+              selectedOrders={selectedOrders}
+              toggleOrder={toggleOrder}
+              toggleAll={toggleAll}
+              onView={openDrawer}
+              onAccept={(id) => handleAcceptOrder(id)}
+              onPreparing={(id) => updateStatus(id, "Preparing")}
+              onReady={(id) => updateStatus(id, "Ready")}
+              onDelivery={(id) => handleAssignClick(id)}
+              onDelivered={(id) => updateStatus(id, "Delivered")}
+              onCancel={(id) => updateStatus(id, "Cancelled")}
+              onAssign={handleAssignClick}
+              onDelete={handleDeleteOrder}
+            />
+            <OrderPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              rowsPerPage={rowsPerPage}
+              totalOrders={filteredOrders.length}
+              onPageChange={setCurrentPage}
+              onRowsChange={(rows) => {
+                setRowsPerPage(rows);
+                setCurrentPage(1);
+              }}
+            />
+          </>
+        )}
+
+        <OrderDrawer
+          open={drawerOpen}
+          order={selectedOrder}
+          onClose={closeDrawer}
+          onExpire={autoCancelOrder}
+        />
+        <ExportModal
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          onExport={exportOrders}
+        />
+        <AssignDeliveryModal
+          isOpen={assignModal}
+          onClose={() => setAssignModal(false)}
+          order={selectedOrder}
+          deliveryBoys={safeDeliveryBoysList.filter((boy) => {
+            // 1. Agar DB mein status field hi nahi hai, toh default show hone do
+            if (!boy.status && boy.isOnline === undefined) return true;
+
+            // 2. Case-insensitive & multi-status match
+            const s = String(boy.status || "").toLowerCase();
+            return (
+              s === "online" ||
+              s === "active" ||
+              s === "available" ||
+              boy.isOnline === true
+            );
+          })}
+          onAssign={handleAssignDelivery}
+        />
+      </div>
+    </motion.div>
   );
 }
