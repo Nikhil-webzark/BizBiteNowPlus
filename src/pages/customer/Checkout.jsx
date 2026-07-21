@@ -23,7 +23,7 @@ import {
   paymentMethods,
 } from "../../data/customer/profileData";
 
-import useOrderStore from "../../store/customer/orderStore";
+import useOrderStore from "../../api/stores/customerstore/orderStore";
 
 import {
   useCart,

@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 
-import { useCart } from "../../context/CartContext";
+import useCartStore from "../../api/stores/customerstore/cartStore";
 
 import HeroBanner from "../../components/customer/hero/HeroBanner";
 
@@ -43,7 +43,10 @@ const [comboMealProducts, setComboMealProducts] = useState([]);
   const [recentProducts, setRecentProducts] = useState([]);
 
   const [offerProducts, setOfferProducts] = useState([]);
-  const { cartItems, addItem, updateItem, removeItem } = useCart();
+ const cartItems = useCartStore((state) => state.items);
+const addToCart = useCartStore((state) => state.addToCart);
+const updateCartItem = useCartStore((state) => state.updateCartItem);
+const removeCartItem = useCartStore((state) => state.removeCartItem);
   const {
   favouriteProducts,
   toggleFavourite,

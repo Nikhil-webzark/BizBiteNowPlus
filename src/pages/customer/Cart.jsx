@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { useCart } from "../../context/CartContext";
+import useCartStore from "../../api/stores/customerstore/cartStore";
 
 import CartPage from "../../components/customer/cart/CartPage";
 import CartSkeleton from "../../components/customer/cart/CartSkeleton";
@@ -10,27 +11,29 @@ const Cart = () => {
   const navigate = useNavigate();
 
   const {
-    cartItems,
-    updateItem,
-    removeItem,
+    items: cartItems,
     loading,
-  } = useCart();
+    fetchCart,
+    updateCartItem,
+    removeCartItem,
+  } = useCartStore();
 
-  const updateQuantity = async (
-    item,
-    type
-  ) => {
+  useEffect(() => {
+    fetchCart().catch(console.error);
+  }, [fetchCart]);
+
+  const updateQuantity = async (item, type) => {
     const quantity =
       type === "inc"
         ? item.quantity + 1
         : item.quantity - 1;
 
     if (quantity <= 0) {
-      await removeItem(item.id);
+      await removeCartItem(item.id);
       return;
     }
 
-    await updateItem(item.id, quantity);
+    await updateCartItem(item.id, quantity);
   };
 
   const sharedProps = {
@@ -43,7 +46,7 @@ const Cart = () => {
       updateQuantity(item, "dec"),
 
     onRemove: (item) =>
-      removeItem(item.id),
+      removeCartItem(item.id),
 
     onCheckout: () =>
       navigate("/customer/checkout"),
