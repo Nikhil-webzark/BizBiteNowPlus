@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SectionHeader from "../../components/customer/common/SectionHeader";
-import { useNavigate } from "react-router-dom";
-import { Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import CategoryTabs from "../../components/customer/menu/CategoryTabs";
 import VegToggle from "../../components/customer/menu/VegToggle";
@@ -19,19 +18,36 @@ import { useFavourite } from "../../context/FavouriteContext";
 import useAuthStore from "../../store/authStore";
 import useProductStore from "../../store/productStore";
 
-// Normalizes a raw backend product into the shape the UI expects,
-// with safe defaults for fields not confirmed in the documented schema.
+const PAGE_SIZE = 12;
+
+// Confirmed real backend fields: _id, seller_id, name, price, description,
+// category (string name), image, is_available, variants[], addons[].
+// isVeg / rating / bestseller / featured / originalPrice / preparationTime
+// are NOT returned by the backend today — defaulted here so every original
+// filter/sort/toggle keeps working without crashing, ready to "light up"
+// the moment the backend actually starts sending real values.
+
 const normalizeProduct = (p) => ({
   ...p,
   id: p._id || p.id,
   available: p.is_available ?? p.available ?? true,
-  isVeg: typeof p.isVeg === "boolean" ? p.isVeg : null, // null = unknown, don't filter it out
-  rating: p.rating || { average: 0, count: 0 },
+
+  // Now REAL fields from backend — mapped correctly
+  isVeg: typeof p.is_veg === "boolean" ? p.is_veg : true,
+  rating: {
+    average: typeof p.rating === "number" ? p.rating : 0,
+    count: p.total_reviews ?? 0,
+  },
+  popularityCount: p.popularity_count ?? 0,
+
+  // Still NOT present on the backend — kept as safe defaults
   bestseller: p.bestseller ?? false,
   featured: p.featured ?? false,
   originalPrice: p.originalPrice ?? null,
-  preparationTime: p.preparationTime ?? null,
-  image: p.image || p.imageUrl || null,
+  preparationTime: p.preparationTime ?? 15,
+
+  variants: p.variants || [],
+  addons: p.addons || [],
 });
 
 const Menu = () => {
@@ -42,19 +58,31 @@ const Menu = () => {
   const sellerId = useAuthStore((state) => state.profile?.seller_id);
 
   const storefront = useProductStore((state) => state.storefront);
-  const categories = useProductStore((state) => state.categories);
+  const categories = useProductStore((state) => state.categories); // array of strings
+
+  const categoryOptions = useMemo(
+    () => [
+      { id: "all", name: "All", icon: "🍽️" },
+      ...categories.map((cat) => ({ id: cat, name: cat, icon: "🍴" })),
+    ],
+    [categories],
+  );
   const loading = useProductStore((state) => state.loading);
   const error = useProductStore((state) => state.error);
   const fetchStorefrontCatalog = useProductStore(
-    (state) => state.fetchStorefrontCatalog
+    (state) => state.fetchStorefrontCatalog,
   );
   const fetchStorefrontCategories = useProductStore(
-    (state) => state.fetchStorefrontCategories
+    (state) => state.fetchStorefrontCategories,
   );
 
   const [activeCategory, setActiveCategory] = useState("all");
   const [vegType, setVegType] = useState("all");
   const [sortBy, setSortBy] = useState("featured");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const loadMoreRef = useRef(null);
 
   const [filters] = useState({
     bestseller: false,
@@ -62,7 +90,11 @@ const Menu = () => {
     rating: false,
     available: true,
   });
-
+  const handleCategoryChange = useCallback((category) => {
+    setActiveCategory(category);
+    setVisibleCount(PAGE_SIZE);
+  }, []);
+  // category sent as the plain string name — confirmed backend contract
   useEffect(() => {
     if (!sellerId) return;
 
@@ -70,23 +102,26 @@ const Menu = () => {
     fetchStorefrontCatalog(sellerId, {
       category: activeCategory !== "all" ? activeCategory : undefined,
     });
-  }, [sellerId, activeCategory, fetchStorefrontCatalog, fetchStorefrontCategories]);
+  }, [
+    sellerId,
+    activeCategory,
+    fetchStorefrontCatalog,
+    fetchStorefrontCategories,
+  ]);
 
   const normalizedProducts = useMemo(
     () => storefront.map(normalizeProduct),
-    [storefront]
+    [storefront],
   );
 
   const filteredProducts = useMemo(() => {
     let products = [...normalizedProducts];
 
-    // veg filter only applies to products where isVeg is actually known;
-    // unknown (null) products stay visible either way rather than vanishing
     if (vegType === "veg") {
-      products = products.filter((item) => item.isVeg !== false);
+      products = products.filter((item) => item.isVeg === true);
     }
     if (vegType === "nonveg") {
-      products = products.filter((item) => item.isVeg !== true);
+      products = products.filter((item) => item.isVeg === false);
     }
 
     if (filters.available) {
@@ -113,11 +148,11 @@ const Menu = () => {
         products.sort((a, b) => b.rating.average - a.rating.average);
         break;
       case "popular":
-        products.sort((a, b) => b.rating.count - a.rating.count);
+        products.sort((a, b) => b.popularityCount - a.popularityCount);
         break;
       case "fastest":
         products.sort(
-          (a, b) => parseInt(a.preparationTime || 0) - parseInt(b.preparationTime || 0)
+          (a, b) => parseInt(a.preparationTime) - parseInt(b.preparationTime),
         );
         break;
       case "recommended":
@@ -127,6 +162,36 @@ const Menu = () => {
 
     return products;
   }, [normalizedProducts, vegType, filters, sortBy]);
+
+  // Client-side pagination window — backend returns everything in one call,
+  // no limit/cursor support exists, so infinite scroll is simulated here.
+  const visibleProducts = filteredProducts.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredProducts.length;
+
+  const loadMore = useCallback(() => {
+    if (!hasMore) return;
+    setLoadingMore(true);
+    setTimeout(() => {
+      setVisibleCount((prev) => prev + PAGE_SIZE);
+      setLoadingMore(false);
+    }, 300);
+  }, [hasMore]);
+
+  useEffect(() => {
+    if (!loadMoreRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMore();
+        }
+      },
+      { threshold: 1 },
+    );
+
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loadMore]);
 
   const getCartItem = (productId) =>
     cartItems.find((item) => item.productId === productId);
@@ -171,21 +236,16 @@ const Menu = () => {
           </Link>
         </div>
 
-        <div className="lg:hidden">
-          <CompactCategoryTabs
-            categories={categories}
-            activeCategory={activeCategory}
-            onChange={setActiveCategory}
-          />
-        </div>
-
-        <div className="hidden lg:block">
-          <CategoryTabs
-            categories={categories}
-            activeCategory={activeCategory}
-            onChange={setActiveCategory}
-          />
-        </div>
+        <CompactCategoryTabs
+          categories={categoryOptions}
+          activeCategory={activeCategory}
+          onChange={handleCategoryChange}
+        />
+        <CategoryTabs
+          categories={categoryOptions}
+          activeCategory={activeCategory}
+          onChange={handleCategoryChange}
+        />
 
         <div className="relative flex flex-col gap-5 px-4 lg:px-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -207,13 +267,11 @@ const Menu = () => {
         </div>
 
         <section className="w-full space-y-6 px-4 lg:px-6">
-          <div>
-            <p className="mt-1 text-slate-500">
-              {filteredProducts.length} items available
-            </p>
-          </div>
+          <p className="mt-1 text-slate-500">
+            {filteredProducts.length} items available
+          </p>
 
-          {filteredProducts.length === 0 ? (
+          {visibleProducts.length === 0 ? (
             <div className="rounded-[28px] border-2 border-dashed border-slate-300 dark:border-[#A9BDCF]/40 bg-white dark:bg-[#181A1B] px-6 py-16 text-center">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                 No Products Found
@@ -225,12 +283,14 @@ const Menu = () => {
           ) : (
             <>
               <div className="space-y-3 lg:hidden">
-                {filteredProducts.map((product) => (
+                {visibleProducts.map((product) => (
                   <MenuListCard
                     key={product.id}
                     product={product}
                     quantity={getCartItem(product.id)?.quantity ?? 0}
-                    isFavourite={favouriteProducts.some((item) => item.id === product.id)}
+                    isFavourite={favouriteProducts.some(
+                      (item) => item.id === product.id,
+                    )}
                     onFavourite={() => toggleFavourite(product)}
                     onAdd={() => addItem(product, 1)}
                     onIncrease={() => addItem(product, 1)}
@@ -245,12 +305,14 @@ const Menu = () => {
 
               <div className="hidden lg:block">
                 <MenuGrid>
-                  {filteredProducts.map((product) => (
+                  {visibleProducts.map((product) => (
                     <ProductCard
                       key={product.id}
                       product={product}
                       quantity={getCartItem(product.id)?.quantity ?? 0}
-                      isFavourite={favouriteProducts.some((item) => item.id === product.id)}
+                      isFavourite={favouriteProducts.some(
+                        (item) => item.id === product.id,
+                      )}
                       onFavourite={() => toggleFavourite(product)}
                       onAdd={() => addItem(product, 1)}
                       onIncrease={() => addItem(product, 1)}
@@ -258,11 +320,25 @@ const Menu = () => {
                         const item = getCartItem(product.id);
                         if (item) updateItem(item.id, item.quantity - 1);
                       }}
-                      onClick={() => navigate(`/customer/product/${product.id}`)}
+                      onClick={() =>
+                        navigate(`/customer/product/${product.id}`)
+                      }
                     />
                   ))}
                 </MenuGrid>
               </div>
+
+              {hasMore && (
+                <div ref={loadMoreRef} className="flex justify-center py-8">
+                  {loadingMore ? (
+                    <p className="text-sm text-slate-500">
+                      Loading more items...
+                    </p>
+                  ) : (
+                    <div className="h-6" />
+                  )}
+                </div>
+              )}
             </>
           )}
         </section>
