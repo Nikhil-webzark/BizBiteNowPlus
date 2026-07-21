@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  getMyProfile,
-  saveProfile,
-  logoutCustomer,
-} from "../../api/customer/authApi";
+import useAuthStore from "../../store/authStore";
+import useCustomerProfileStore from "../../store/customerProfileStore";
 import { useTheme } from "../../context/ThemeContext";
 import {
   ChevronRight,
@@ -43,6 +40,19 @@ const STEP_COUNT = 4;
 const Profile = () => {
   const navigate = useNavigate();
   const { darkMode } = useTheme();
+
+  const authUser = useAuthStore((state) => state.user);
+  const profile = useAuthStore((state) => state.profile);
+  const logout = useAuthStore((state) => state.logout);
+  const setProfile = useAuthStore((state) => state.setProfile);
+  const sellerId = profile?.seller_id;
+  const customerId = profile?._id || profile?.id || authUser?._id || authUser?.id;
+
+  const mohallas = useCustomerProfileStore((state) => state.mohallas);
+  const getMohallas = useCustomerProfileStore((state) => state.getMohallas);
+  const saveAddress = useCustomerProfileStore((state) => state.saveAddress);
+  const deleteAccount = useCustomerProfileStore((state) => state.deleteAccount);
+
   const [user, setUser] = useState(null);
 
   const [paymentMethod, setPaymentMethod] = useState(
@@ -55,10 +65,12 @@ const Profile = () => {
 
   const [showAddresses, setShowAddresses] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
-  const [addressForm, setAddressForm] = useState({ address: "" });
+  const [addressForm, setAddressForm] = useState({ mohalla: "", address: "" });
   const [addressErrors, setAddressErrors] = useState({});
   const [locLoading, setLocLoading] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [showAppSettings, setShowAppSettings] = useState(false);
@@ -72,13 +84,16 @@ const Profile = () => {
     }
   });
   useEffect(() => {
-    getMyProfile()
-      .then(setUser)
-      .catch(() => setUser({ name: "", phone: "", address: "" }));
-  }, [navigate]);
+    setUser({
+      name: profile?.customer_name || authUser?.name || "",
+      phone: profile?.customer_phone || authUser?.phone || "",
+      mohalla: profile?.mohalla || "",
+      address: profile?.addressLine || profile?.delivery_address || profile?.address || "",
+    });
+  }, [authUser, profile]);
 
-  const handleLogout = async () => {
-    await logoutCustomer();
+  const handleLogout = () => {
+    logout();
     navigate("/", { replace: true });
   };
 
@@ -86,10 +101,14 @@ const Profile = () => {
 
   // ---- Address ----
   const openAddresses = () => {
-    setAddressForm({ address: user.address || "" });
+    setAddressForm({
+      mohalla: user.mohalla || "",
+      address: user.address || "",
+    });
     setAddressErrors({});
     setEditingAddress(!user.address);
     setShowAddresses(true);
+    if (sellerId) getMohallas(sellerId).catch(() => {});
   };
 
   const getAddressLocation = () => {
@@ -126,19 +145,29 @@ const Profile = () => {
   };
 
   const handleSaveAddress = async () => {
+    if (!addressForm.mohalla) {
+      setAddressErrors({ mohalla: "Select a delivery area" });
+      return;
+    }
     if (!addressForm.address.trim()) {
       setAddressErrors({ address: "Address is required" });
       return;
     }
     setSavingAddress(true);
     try {
-      const { user: updatedUser } = await saveProfile({
-        address: addressForm.address,
+      const res = await saveAddress({
+        addressLine: addressForm.address,
+        mohalla: addressForm.mohalla,
       });
-      setUser(updatedUser);
+      const mohalla = res.customer?.mohalla || addressForm.mohalla;
+      const address = res.customer?.addressLine || addressForm.address;
+      setUser((prev) => ({ ...prev, mohalla, address }));
+      setProfile({ mohalla, addressLine: address });
       setEditingAddress(false);
     } catch (err) {
-      setAddressErrors({ address: err.message || "Could not save address" });
+      setAddressErrors({
+        address: err.response?.data?.message || "Could not save address",
+      });
     }
     setSavingAddress(false);
   };
@@ -180,13 +209,23 @@ const Profile = () => {
     }
   };
 
+  // Step 1: opens the confirmation modal (called from Settings)
   const handleDeleteAccount = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to delete your account? This can't be undone.",
-      )
-    ) {
-      alert("Account deletion isn't available yet.");
+    setShowAccountSettings(false);
+    setShowDeleteConfirm(true);
+  };
+
+  // Step 2: user explicitly confirms inside the modal — this is what actually deletes
+  const confirmDeleteAccount = async () => {
+    setDeletingAccount(true);
+    try {
+      await deleteAccount(customerId);
+      logout();
+      navigate("/", { replace: true });
+    } catch (err) {
+      alert(err.response?.data?.message || "Could not delete account");
+      setDeletingAccount(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -416,14 +455,41 @@ const Profile = () => {
           ) : (
             <div>
               <label className="block text-[14px] font-semibold text-gray-500 dark:text-slate-400 mb-1">
+                Delivery Area (Mohalla) *
+              </label>
+              <select
+                name="mohalla"
+                value={addressForm.mohalla}
+                onChange={(e) => {
+                  setAddressForm((prev) => ({ ...prev, mohalla: e.target.value }));
+                  if (addressErrors.mohalla) setAddressErrors((prev) => ({ ...prev, mohalla: "" }));
+                }}
+                className={`w-full border rounded-xl px-3 text-[15px] outline-none transition-colors bg-transparent text-slate-900 dark:text-white mb-1 ${
+                  addressErrors.mohalla ? "border-red-400" : "border-gray-200 dark:border-[#A9BDCF]/40"
+                }`}
+                style={{ minHeight: "44px" }}>
+                <option value="">Select your area</option>
+                {mohallas.map((m) => (
+                  <option key={m} value={m} className="text-slate-900">
+                    {m}
+                  </option>
+                ))}
+              </select>
+              {addressErrors.mohalla && (
+                <p className="text-red-500 text-[13px] mb-3">
+                  {addressErrors.mohalla}
+                </p>
+              )}
+
+              <label className="block text-[14px] font-semibold text-gray-500 dark:text-slate-400 mb-1 mt-3">
                 Delivery Address *
               </label>
               <textarea
                 name="address"
                 value={addressForm.address}
                 onChange={(e) => {
-                  setAddressForm({ address: e.target.value });
-                  if (addressErrors.address) setAddressErrors({});
+                  setAddressForm((prev) => ({ ...prev, address: e.target.value }));
+                  if (addressErrors.address) setAddressErrors((prev) => ({ ...prev, address: "" }));
                 }}
                 placeholder="Enter your full delivery address"
                 rows={3}
@@ -556,7 +622,37 @@ const Profile = () => {
             onItemClick={handleSettingsItemClick}
             onLogout={handleLogout}
             onDeleteAccount={handleDeleteAccount}
+            deletingAccount={deletingAccount}
           />
+        </Modal>
+
+        {/* Delete Account confirmation modal */}
+        <Modal
+          open={showDeleteConfirm}
+          onClose={() => !deletingAccount && setShowDeleteConfirm(false)}
+          title="Delete Account"
+          size="sm">
+          <p className="text-slate-600 dark:text-slate-300" style={{ fontSize: "14px" }}>
+            This will permanently delete your account, saved address, and
+            loyalty progress. <strong>This action cannot be undone.</strong>
+          </p>
+          <p className="mt-3 font-semibold text-slate-900 dark:text-white" style={{ fontSize: "14px" }}>
+            Are you sure you want to continue?
+          </p>
+          <div className="flex gap-3 mt-5">
+            <SecondaryButton
+              fullWidth
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={deletingAccount}>
+              Cancel
+            </SecondaryButton>
+            <button
+              onClick={confirmDeleteAccount}
+              disabled={deletingAccount}
+              className="flex-1 rounded-[24px] border border-red-600 bg-red-600 p-[5px] font-semibold text-white transition hover:bg-red-700 disabled:opacity-60">
+              {deletingAccount ? "Deleting..." : "DELETE"}
+            </button>
+          </div>
         </Modal>
 
         {/* App Settings modal */}
