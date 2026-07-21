@@ -9,11 +9,15 @@ import {
 } from "lucide-react";
 
 export default function TodaysEarnings({ summary }) {
-  const codPercentage = Math.round(
-    (summary.codPending / (summary.codPending + summary.onlineReceived)) * 100,
-  );
+  // 🔧 FIX: divide-by-zero guard (was NaN when both are 0)
+  const totalCollected = (summary.codPending || 0) + (summary.onlineReceived || 0);
+  const codPercentage =
+    totalCollected > 0 ? Math.round((summary.codPending / totalCollected) * 100) : 0;
+  const onlinePercentage = totalCollected > 0 ? 100 - codPercentage : 0;
 
-  const onlinePercentage = 100 - codPercentage;
+  // 🔧 FIX: fallback to 0 if revenueGrowth is missing/undefined
+  const revenueGrowth = summary.revenueGrowth ?? 0;
+  const progressWidth = Math.min(Math.max(revenueGrowth, 0) * 4, 100);
 
   const metrics = [
     {
@@ -25,21 +29,21 @@ export default function TodaysEarnings({ summary }) {
     },
     {
       title: "Average Order",
-      value: `₹${summary.averageOrderValue.toLocaleString("en-IN")}`,
+      value: `₹${(summary.averageOrderValue || 0).toLocaleString("en-IN")}`,
       icon: Wallet,
       iconColor: "text-violet-600",
       iconBg: "bg-violet-100",
     },
     {
       title: "COD Collection",
-      value: `₹${summary.codPending.toLocaleString("en-IN")}`,
+      value: `₹${(summary.codPending || 0).toLocaleString("en-IN")}`,
       icon: CreditCard,
       iconColor: "text-orange-600",
       iconBg: "bg-orange-100",
     },
     {
       title: "Online Received",
-      value: `₹${summary.onlineReceived.toLocaleString("en-IN")}`,
+      value: `₹${(summary.onlineReceived || 0).toLocaleString("en-IN")}`,
       icon: BadgeCheck,
       iconColor: "text-emerald-600",
       iconBg: "bg-emerald-100",
@@ -64,7 +68,7 @@ export default function TodaysEarnings({ summary }) {
                 <p className="text-white/80">Today's Earnings</p>
 
                 <h2 className="mt-0 text-5xl  font-black">
-                  ₹{summary.todayEarnings.toLocaleString("en-IN")}
+                  ₹{(summary.todayEarnings || 0).toLocaleString("en-IN")}
                 </h2>
               </div>
             </div>
@@ -73,7 +77,7 @@ export default function TodaysEarnings({ summary }) {
               <ArrowUpRight size={22} />
 
               <span>
-                Revenue increased by <strong>{summary.revenueGrowth}%</strong>{" "}
+                Revenue increased by <strong>{revenueGrowth}%</strong>{" "}
                 compared to yesterday.
               </span>
             </div>
@@ -91,7 +95,7 @@ export default function TodaysEarnings({ summary }) {
                 <div
                   className="h-full rounded-full bg-green-700 transition-all duration-700"
                   style={{
-                    width: `${Math.min(summary.revenueGrowth * 4, 100)}%`,
+                    width: `${progressWidth}%`,
                   }}
                 />
               </div>
@@ -99,7 +103,7 @@ export default function TodaysEarnings({ summary }) {
               <div className="mt-4 flex items-center justify-between text-sm text-white/80">
                 <span>Target Progress</span>
 
-                <span>{Math.min(summary.revenueGrowth * 4, 100)}%</span>
+                <span>{progressWidth}%</span>
               </div>
             </div>
           </div>
@@ -175,7 +179,7 @@ export default function TodaysEarnings({ summary }) {
             </div>
 
             <p className="mt-2 text-sm text-slate-500">
-              ₹{summary.codPending.toLocaleString("en-IN")}
+              ₹{(summary.codPending || 0).toLocaleString("en-IN")}
             </p>
           </div>
 
@@ -202,7 +206,7 @@ export default function TodaysEarnings({ summary }) {
             </div>
 
             <p className="mt-2 text-sm text-slate-500">
-              ₹{summary.onlineReceived.toLocaleString("en-IN")}
+              ₹{(summary.onlineReceived || 0).toLocaleString("en-IN")}
             </p>
           </div>
         </div>
@@ -228,7 +232,7 @@ export default function TodaysEarnings({ summary }) {
                 <h4 className="font-semibold text-slate-900">Revenue Growth</h4>
 
                 <p className="mt-1 text-sm text-slate-500">
-                  Revenue increased by <strong>{summary.revenueGrowth}%</strong>{" "}
+                  Revenue increased by <strong>{revenueGrowth}%</strong>{" "}
                   over yesterday.
                 </p>
               </div>
@@ -246,7 +250,7 @@ export default function TodaysEarnings({ summary }) {
 
                 <p className="mt-1 text-sm text-slate-500">
                   Current average order value is ₹
-                  {summary.averageOrderValue.toLocaleString("en-IN")}.
+                  {(summary.averageOrderValue || 0).toLocaleString("en-IN")}.
                 </p>
               </div>
             </div>
@@ -278,7 +282,7 @@ export default function TodaysEarnings({ summary }) {
 
                 <p className="mt-1 text-sm text-slate-500">
                   Pending COD collection is ₹
-                  {summary.codPending.toLocaleString("en-IN")}.
+                  {(summary.codPending || 0).toLocaleString("en-IN")}.
                 </p>
               </div>
             </div>

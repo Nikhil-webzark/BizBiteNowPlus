@@ -36,18 +36,31 @@ const Home = () => {
   const [store, setStore] = useState(null);
 
   const [menuData, setMenuData] = useState([]);
-const [todaySpecialProducts, setTodaySpecialProducts] = useState([]);
-const [comboMealProducts, setComboMealProducts] = useState([]);
-  
+  const [todaySpecialProducts, setTodaySpecialProducts] = useState([]);
+  const [comboMealProducts, setComboMealProducts] = useState([]);
 
   const [recentProducts, setRecentProducts] = useState([]);
 
   const [offerProducts, setOfferProducts] = useState([]);
   const { cartItems, addItem, updateItem, removeItem } = useCart();
-  const {
-  favouriteProducts,
-  toggleFavourite,
-} = useFavourite();
+  const { favouriteProducts, toggleFavourite } = useFavourite();
+
+  /* --- State for Banner Dot Pagination --- */
+  const [activeBannerIndex, setActiveBannerIndex] = useState(0);
+
+  /* --- Added: 2 Custom Banner Links combined with Store Banners --- */
+  const allBanners = useMemo(() => {
+    const apiBanners = store?.banners || [];
+
+    // YAHA 2 CUSTOM BANNERS DAAL DIYE HAIN:
+    const customBanners = [
+      "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80",
+    ];
+
+    return [...apiBanners, ...customBanners];
+  }, [store?.banners]);
+
   const increaseQuantity = (product) => {
     const item = cartItems.find(
       (cartItem) => cartItem.productId === product.id,
@@ -75,35 +88,35 @@ const [comboMealProducts, setComboMealProducts] = useState([]);
 
     updateItem(item.id, item.quantity - 1);
   };
+
   const loadData = async () => {
     setLoading(true);
 
     try {
-const [
-  storeRes,
-  menuRes,
-  todayRes,
-  comboRes,
-  recentRes,
-] = await Promise.all([
-  getStore(),
-  getMenu(),
-  getTodaySpecialProducts(),
-  getComboMealProducts(),
-  getRecentlyOrderedProducts(),
-]);
+      const [
+        storeRes,
+        menuRes,
+        todayRes,
+        comboRes,
+        recentRes,
+      ] = await Promise.all([
+        getStore(),
+        getMenu(),
+        getTodaySpecialProducts(),
+        getComboMealProducts(),
+        getRecentlyOrderedProducts(),
+      ]);
 
-setMenuData(menuRes.data?.data || []);
-setTodaySpecialProducts(todayRes.data?.data || []);
-setComboMealProducts(comboRes.data?.data || []);
-setRecentProducts(recentRes.data?.data || []);
+      setMenuData(menuRes.data?.data || []);
+      setTodaySpecialProducts(todayRes.data?.data || []);
+      setComboMealProducts(comboRes.data?.data || []);
+      setRecentProducts(recentRes.data?.data || []);
 
-const menu = menuRes.data?.data || [];
+      const menu = menuRes.data?.data || [];
 
       setStore(storeRes.data.data);
 
       setMenuData(menu);
-
 
       setOfferProducts(menu.filter((item) => item.originalPrice > item.price));
     } catch (err) {
@@ -118,14 +131,27 @@ const menu = menuRes.data?.data || [];
     loadData();
   }, []);
 
- const favouriteCount = useMemo(
-  () => favouriteProducts.length,
-  [favouriteProducts]
-);
+  /* --- Auto-scroll effect for banner pagination --- */
+  useEffect(() => {
+    const bannerCount = allBanners.length;
+    if (bannerCount <= 1) return;
+
+    const interval = setInterval(() => {
+      setActiveBannerIndex((prev) => (prev + 1) % bannerCount);
+    }, 3500);
+
+    return () => clearInterval(interval);
+  }, [allBanners]);
+
+  const favouriteCount = useMemo(
+    () => favouriteProducts.length,
+    [favouriteProducts],
+  );
 
   const recentCount = useMemo(() => recentProducts.length, [recentProducts]);
 
   const offerCount = useMemo(() => offerProducts.length, [offerProducts]);
+
   const handleFavourite = async (productId) => {
     try {
       await toggleFavorite({
@@ -149,11 +175,13 @@ const menu = menuRes.data?.data || [];
       console.error(err);
     }
   };
+
   const mobileBanners =
-    store?.banners?.map((image, index) => ({
+    allBanners.map((image, index) => ({
       id: index + 1,
       image,
     })) || [];
+
   return (
     <motion.div
       initial={{
@@ -194,7 +222,34 @@ const menu = menuRes.data?.data || [];
             {loading ? (
               <BannerSkeleton />
             ) : (
-              <BannerCarousel banners={mobileBanners} />
+              <div className="relative w-full">
+                <BannerCarousel
+                  banners={mobileBanners}
+                  activeIndex={activeBannerIndex}
+                  onIndexChange={setActiveBannerIndex}
+                />
+
+                {/* --- Dot Pagination for Mobile Banner --- */}
+                {mobileBanners.length > 0 && (
+                  <div className="absolute bottom-3 left-0 right-0 flex justify-center items-center gap-2 z-30 pointer-events-auto">
+                    {mobileBanners.map((_, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setActiveBannerIndex(idx)}
+                        className={`h-2 rounded-full transition-all duration-300 shadow-md ${activeBannerIndex === idx
+                            ? "w-6 bg-[var(--primary)] dark:bg-white"
+                            : "w-2 bg-white/80 dark:bg-white/50 hover:bg-white"
+                          }`}
+                        style={{
+                          filter: "drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.8))"
+                        }}
+                        aria-label={`Go to slide ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
           <div className="px-1">
@@ -257,49 +312,47 @@ const menu = menuRes.data?.data || [];
             />
           )}
 
-  {loading ? (
-    <HorizontalSectionSkeleton />
-  ) : (
-    <HorizontalSection
-      title="Today's Special 🌟"
-      subtitle="Chef's handpicked favorites."
-      buttonText="View All"
-      onViewAll={() => navigate("/customer/menu")}
-      products={todaySpecialProducts}
-      cartItems={cartItems}
-      favouriteProducts={favouriteProducts}
-      onProductClick={(product) =>
-        navigate(`/customer/product/${product.id}`)
-      }
-      onFavourite={handleFavourite}
-      onAdd={addItem}
-      onIncrease={increaseQuantity}
-      onDecrease={decreaseQuantity}
-    />
-  )}
+          {loading ? (
+            <HorizontalSectionSkeleton />
+          ) : (
+            <HorizontalSection
+              title="Today's Special 🌟"
+              subtitle="Chef's handpicked favorites."
+              buttonText="View All"
+              onViewAll={() => navigate("/customer/menu")}
+              products={todaySpecialProducts}
+              cartItems={cartItems}
+              favouriteProducts={favouriteProducts}
+              onProductClick={(product) =>
+                navigate(`/customer/product/${product.id}`)
+              }
+              onFavourite={handleFavourite}
+              onAdd={addItem}
+              onIncrease={increaseQuantity}
+              onDecrease={decreaseQuantity}
+            />
+          )}
 
-
-  {loading ? (
-    <HorizontalSectionSkeleton />
-  ) : (
-    <HorizontalSection
-      title="Combo Meals 🍱"
-      subtitle="Great taste, better value."
-      buttonText="View All"
-      onViewAll={() => navigate("/customer/menu")}
-      products={comboMealProducts}
-      cartItems={cartItems}
-      favouriteProducts={favouriteProducts}
-      onProductClick={(product) =>
-        navigate(`/customer/product/${product.id}`)
-      }
-      onFavourite={handleFavourite}
-      onAdd={addItem}
-      onIncrease={increaseQuantity}
-      onDecrease={decreaseQuantity}
-    />
-  )}
-
+          {loading ? (
+            <HorizontalSectionSkeleton />
+          ) : (
+            <HorizontalSection
+              title="Combo Meals 🍱"
+              subtitle="Great taste, better value."
+              buttonText="View All"
+              onViewAll={() => navigate("/customer/menu")}
+              products={comboMealProducts}
+              cartItems={cartItems}
+              favouriteProducts={favouriteProducts}
+              onProductClick={(product) =>
+                navigate(`/customer/product/${product.id}`)
+              }
+              onFavourite={handleFavourite}
+              onAdd={addItem}
+              onIncrease={increaseQuantity}
+              onDecrease={decreaseQuantity}
+            />
+          )}
 
           {loading ? (
             <HorizontalSectionSkeleton />
@@ -352,17 +405,40 @@ const menu = menuRes.data?.data || [];
           {loading ? (
             <HeroSkeleton />
           ) : (
-            <HeroBanner
-              banners={store?.banners}
-              logo={store?.logo}
-              name={store?.name}
-              tagline={store?.tagline}
-              deliveryTime={store?.deliveryTime}
-              isOpen={store?.isOpen}
-            />
-          )}
+            <div className="relative w-full">
+              <HeroBanner
+                banners={allBanners}
+                logo={store?.logo}
+                name={store?.name}
+                tagline={store?.tagline}
+                deliveryTime={store?.deliveryTime}
+                isOpen={store?.isOpen}
+                activeIndex={activeBannerIndex}
+                onIndexChange={setActiveBannerIndex}
+              />
 
-          
+              {/* --- Dot Pagination for Desktop Banner --- */}
+              {allBanners.length > 0 && (
+                <div className="absolute bottom-5 left-0 right-0 flex justify-center items-center gap-2.5 z-30 pointer-events-auto">
+                  {allBanners.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setActiveBannerIndex(idx)}
+                      className={`h-2.5 rounded-full transition-all duration-300 shadow-md ${activeBannerIndex === idx
+                          ? "w-8 bg-[var(--primary)] dark:bg-white"
+                          : "w-2.5 bg-white/80 dark:bg-white/50 hover:bg-white"
+                        }`}
+                      style={{
+                        filter: "drop-shadow(0px 1px 3px rgba(0, 0, 0, 0.8))"
+                      }}
+                      aria-label={`Go to slide ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Recently Ordered */}
 
@@ -468,7 +544,6 @@ const menu = menuRes.data?.data || [];
               </MenuGrid>
             </section>
           )}
-        
 
           {offerCount > 0 && (
             <section className="space-y-6 px-2 sm:px-4 lg:px-6 xl:px-8">

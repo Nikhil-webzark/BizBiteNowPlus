@@ -4,13 +4,15 @@ import OrderStatusBadge from "./OrderStatusBadge";
 import OrderActionModal from "./OrderActionModal";
 import { useNavigate } from "react-router-dom";
 
+const INK = "#1A4D2E";
+
 export default function OrdersTable({
   orders,
   deliveryBoys = [],
   activeTab = "new",
   selectedOrders = [],
-  toggleOrder = () => {},
-  toggleAll = () => {},
+  toggleOrder = () => { },
+  toggleAll = () => { },
   onAccept,
   onPreparing,
   onReady,
@@ -28,16 +30,19 @@ export default function OrdersTable({
 
   if (!orders.length) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-16 text-center shadow-sm">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#16522d]/10">
-          <PackageOpen size={30} className="text-[#16522d]" />
+      <div className="rounded-2xl border border-black/5 bg-white p-16 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div
+          className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full"
+          style={{ backgroundColor: `${INK}1A` }}
+        >
+          <PackageOpen size={26} style={{ color: INK }} />
         </div>
 
-        <h3 className="text-lg font-semibold text-slate-800">
-          {activeTab === "new" ? "No New Orders" : "No Completed Orders"}
+        <h3 className="text-base font-semibold text-slate-800">
+          {activeTab === "new" ? "No new orders" : "No completed orders"}
         </h3>
 
-        <p className="mt-2 text-sm text-slate-500">
+        <p className="mt-1.5 text-sm text-slate-500">
           {activeTab === "new"
             ? "New orders will appear here once customers place them."
             : "Delivered orders will appear here."}
@@ -48,25 +53,40 @@ export default function OrdersTable({
 
   return (
     <>
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="overflow-x-auto scrollbar-hide">
           <table className="min-w-full">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="w-12 px-5 py-4">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50/60">
+                <th className="w-12 px-5 py-3.5">
                   <input
                     type="checkbox"
                     checked={orders.length > 0 && selectedOrders.length === orders.length}
                     onChange={toggleAll}
+                    className="accent-[#1A4D2E]"
                   />
                 </th>
-                <th className="px-5 py-4 text-left text-sm font-semibold">Order</th>
-                <th className="px-5 py-4 text-left text-sm font-semibold">Customer</th>
-                <th className="px-5 py-4 text-center text-sm font-semibold">Items</th>
-                <th className="px-5 py-4 text-left text-sm font-semibold">Payment</th>
-                <th className="px-5 py-4 text-right text-sm font-semibold">Amount</th>
-                <th className="px-5 py-4 text-center text-sm font-semibold">Status</th>
-                <th className="px-5 py-4 text-right text-sm font-semibold">Actions</th>
+                <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Order
+                </th>
+                <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Customer
+                </th>
+                <th className="px-5 py-3.5 text-center text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Items
+                </th>
+                <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Payment
+                </th>
+                <th className="px-5 py-3.5 text-right text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Amount
+                </th>
+                <th className="px-5 py-3.5 text-center text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Status
+                </th>
+                <th className="px-5 py-3.5 text-right text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Actions
+                </th>
               </tr>
             </thead>
 
@@ -75,55 +95,65 @@ export default function OrdersTable({
                 <tr
                   key={order.id}
                   onClick={() => navigate(`/seller/orders/${order.id}`)}
-                  className="border-t transition cursor-pointer hover:bg-slate-50"
+                  className="cursor-pointer border-b border-slate-50 transition hover:bg-slate-50/60"
                 >
                   <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
                       checked={selectedOrders.includes(order.id)}
                       onChange={() => toggleOrder(order.id)}
+                      className="accent-[#1A4D2E]"
                     />
                   </td>
 
                   <td className="px-5 py-4">
-                    <p className="font-semibold text-slate-800">{order.orderId}</p>
-                    <p className="text-xs text-slate-500">
-                      {new Date(order.createdAt).toLocaleString("en-IN", { timeStyle: "short", dateStyle: "short" })}
+                    <p className="text-sm font-medium text-slate-800">{order.orderId}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {new Date(order.createdAt).toLocaleString("en-IN", {
+                        timeStyle: "short",
+                        dateStyle: "short",
+                      })}
                     </p>
                   </td>
 
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#16522d]/10 font-bold text-[#16522d]">
-                        {order.customer ? order.customer.charAt(0) : "G"}
+                      <div
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium text-white"
+                        style={{ backgroundColor: INK }}
+                      >
+                        {order.customer ? order.customer.charAt(0).toUpperCase() : "G"}
                       </div>
                       <div>
-                        <p className="font-medium">{order.customer}</p>
+                        <p className="text-sm font-medium text-slate-800">{order.customer}</p>
                         <p className="text-xs text-slate-500">{order.phone}</p>
                       </div>
                     </div>
                   </td>
 
-                  <td className="px-5 py-4 text-center font-semibold">
+                  <td className="px-5 py-4 text-center text-sm font-medium text-slate-700">
                     {order.items?.length || 0}
                   </td>
 
                   <td className="px-5 py-4">
                     <div className="space-y-1">
                       <span
-                        className={`inline-flex rounded-lg px-3 py-1 text-xs font-semibold ${
+                        className="inline-flex rounded-full px-2.5 py-1 text-xs font-medium"
+                        style={
                           order.payment === "COD"
-                            ? "bg-orange-100 text-orange-700"
-                            : "bg-green-100 text-green-700"
-                        }`}
+                            ? { backgroundColor: "#F8BD0D26", color: "#946600" }
+                            : { backgroundColor: `${INK}1A`, color: INK }
+                        }
                       >
                         {order.payment}
                       </span>
-                      <p className="text-xs text-slate-500">{order.paymentStatus}</p>
+                      <p className="text-xs text-slate-400">{order.paymentStatus}</p>
                     </div>
                   </td>
 
-                  <td className="px-5 py-4 text-right font-bold">₹{order.amount}</td>
+                  <td className="px-5 py-4 text-right text-sm font-semibold text-slate-800">
+                    ₹{order.amount}
+                  </td>
 
                   <td className="px-5 py-4 text-center">
                     <OrderStatusBadge status={order.status} />
@@ -136,7 +166,7 @@ export default function OrdersTable({
                         setSelectedOrderId(order.id);
                         setActionModalOpen(true);
                       }}
-                      className="rounded-lg p-2 transition hover:bg-slate-100 text-slate-500"
+                      className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                     >
                       <MoreVertical size={18} />
                     </button>
