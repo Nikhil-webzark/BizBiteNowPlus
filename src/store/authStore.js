@@ -212,6 +212,14 @@ const useAuthStore = create(
       },
 
       // ===========================
+      // PATCH PROFILE (local update after a successful save, no re-login needed)
+      // ===========================
+
+      setProfile: (patch) => {
+        set((state) => ({ profile: { ...state.profile, ...patch } }));
+      },
+
+      // ===========================
       // LOGOUT
       // ===========================
 

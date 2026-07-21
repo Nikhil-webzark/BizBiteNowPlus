@@ -14,7 +14,8 @@ import {
   KeyRound,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { getMyProfile, saveProfile } from "../../api/customer/authApi";
+import useAuthStore from "../../store/authStore";
+import useCustomerProfileStore from "../../store/customerProfileStore";
 import Avatar from "../../components/customer/common/Avatar";
 import SecondaryButton from "../../components/customer/common/SecondaryButton";
 
@@ -64,6 +65,13 @@ const genderOptions = ["Male", "Female", "Other", "Prefer not to say"];
 
 const PersonalDetails = () => {
   const navigate = useNavigate();
+  const authUser = useAuthStore((state) => state.user);
+  const profile = useAuthStore((state) => state.profile);
+  const setProfile = useAuthStore((state) => state.setProfile);
+  const updateProfile = useCustomerProfileStore((state) => state.updateProfile);
+
+  const customerId = profile?._id || profile?.id || authUser?._id || authUser?.id;
+
   const [user, setUser] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
@@ -72,24 +80,18 @@ const PersonalDetails = () => {
   const [editing, setEditing] = useState(false);
 
   useEffect(() => {
-    getMyProfile()
-      .then((u) => {
-        setUser(u);
-        setForm({
-          name: u.name || "",
-          email: u.email || "",
-          phone: u.phone || "",
-          gender: u.gender || "",
-          dob: u.dob || "",
-          city: u.city || "",
-        });
-        setEditing(!u.name);
-      })
-      .catch(() => {
-        setUser({ name: "" });
-        setEditing(true);
-      });
-  }, []);
+    const u = {
+      name: profile?.customer_name || authUser?.name || "",
+      email: profile?.email || authUser?.email || "",
+      phone: profile?.customer_phone || authUser?.phone || "",
+      gender: profile?.gender || authUser?.gender || "",
+      dob: profile?.birthday || profile?.dob || authUser?.dob || "",
+      city: profile?.city || authUser?.city || "",
+    };
+    setUser(u);
+    setForm(u);
+    setEditing(!u.name);
+  }, [authUser, profile]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -146,19 +148,22 @@ const PersonalDetails = () => {
     }
     setSaving(true);
     try {
-      const { user: updatedUser } = await saveProfile({
+      const payload = {
         name: form.name.trim(),
         email: form.email.trim(),
-        phone: form.phone.trim(),
         gender: form.gender,
         dob: form.dob,
         city: form.city.trim(),
-      });
-      setUser(updatedUser);
+      };
+      await updateProfile(customerId, payload);
+      setProfile({ customer_name: payload.name, ...payload });
+      setUser(form);
       setSaved(true);
       setEditing(false);
     } catch (err) {
-      setErrors({ name: err.message || "Could not save details" });
+      setErrors({
+        name: err.response?.data?.message || "Could not save details",
+      });
     }
     setSaving(false);
   };

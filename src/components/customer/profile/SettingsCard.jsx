@@ -53,6 +53,7 @@ const SettingsCard = ({
   onItemClick,
   onLogout,
   onDeleteAccount,
+  deletingAccount = false,
 }) => {
   return (
     <section className="space-y-6">
@@ -177,6 +178,7 @@ const SettingsCard = ({
 
       <button
         onClick={onDeleteAccount}
+        disabled={deletingAccount}
         className="
           flex
           w-full
@@ -200,11 +202,13 @@ const SettingsCard = ({
           transition
 
           hover:bg-red-700
+
+          disabled:opacity-60
         "
       >
         <Trash2 size={20} />
 
-        Delete Account
+        {deletingAccount ? "Deleting..." : "Delete Account"}
       </button>
     </section>
   );
