@@ -1,416 +1,109 @@
-import {
-  CalendarDays,
-  Package,
-  Palette,
-  Clock3,
-  CheckCircle2,
-} from "lucide-react";
+import { Calendar, Package } from "lucide-react";
 
 export default function ReviewStep({
   basicInfo = {},
   products = [],
-  appearance = {},
   schedule = {},
 }) {
+  // Safe Image URL Resolver (Handles both URL string and File preview)
+  const getBannerSrc = () => {
+    if (typeof basicInfo.banner === "string" && basicInfo.banner.trim() !== "") {
+      return basicInfo.banner;
+    }
+    if (basicInfo.banner_image instanceof File) {
+      return URL.createObjectURL(basicInfo.banner_image);
+    }
+    return null;
+  };
+
+  const bannerSrc = getBannerSrc();
+
   return (
-    <div className="space-y-8">
-      {/* Header */}
-
+    <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold">
-          Review & Publish
-        </h2>
-
-        <p className="text-sm text-slate-500 mt-1">
-          Review every section before publishing your festive menu.
+        <h2 className="text-2xl font-bold text-slate-900">Review & Publish</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Verify all details before publishing your festive menu.
         </p>
       </div>
 
-      {/* Basic Information */}
+      {/* Banner & Basic Info */}
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-5">
+        {/* Strictly renders img tag ONLY if a valid URL/Blob exists */}
+        {bannerSrc ? (
+          <img
+            src={bannerSrc}
+            alt={basicInfo.name || "Festive Banner"}
+            className="mb-4 h-48 w-full rounded-xl object-cover"
+          />
+        ) : null}
 
-      <div className="rounded-xl border bg-white 900 border-slate-700">
-
-        <div className="border-b px-6 py-4 flex items-center gap-2">
-          <Package className="text-orange-500" size={18} />
-          <h3 className="font-semibold">
-            Basic Information
+        <div className="space-y-2">
+          <span className="inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
+            {basicInfo.festival || "General Festival"}
+          </span>
+          <h3 className="text-xl font-bold text-slate-900">
+            {basicInfo.name || "Untitled Offer"}
           </h3>
+          <p className="text-sm text-slate-600">
+            {basicInfo.description || "No description provided."}
+          </p>
         </div>
-
-        <div className="grid md:grid-cols-2 gap-6 p-6">
-
-          <div>
-            <p className="text-xs uppercase text-slate-500">
-              Menu Name
-            </p>
-
-            <p className="font-medium mt-1">
-              {basicInfo.name || "--"}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs uppercase text-slate-500">
-              Festival
-            </p>
-
-            <p className="font-medium mt-1">
-              {basicInfo.festival || "--"}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs uppercase text-slate-500">
-              Theme
-            </p>
-
-            <p className="font-medium mt-1">
-              {basicInfo.theme || "--"}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs uppercase text-slate-500">
-              Status
-            </p>
-
-            <span className="inline-flex mt-2 rounded-full bg-emerald-100 text-emerald-700 px-3 py-1 text-xs font-medium">
-              Ready
-            </span>
-          </div>
-
-          <div className="md:col-span-2">
-
-            <p className="text-xs uppercase text-slate-500">
-              Description
-            </p>
-
-            <p className="mt-2 text-sm text-slate-600 text-slate-400">
-              {basicInfo.description ||
-                "No description added."}
-            </p>
-
-          </div>
-
-        </div>
-
       </div>
 
-      {/* Products */}
-
-      <div className="rounded-xl border bg-white 900 border-slate-700">
-
-        <div className="border-b px-6 py-4 flex items-center gap-2">
-
-          <Package
-            className="text-indigo-500"
-            size={18}
-          />
-
-          <h3 className="font-semibold">
-            Selected Products
-          </h3>
-
-        </div>
-
-        <div className="p-6">
-
-          <div className="flex items-center justify-between mb-5">
-
-            <p className="font-medium">
-              Total Products
-            </p>
-
-            <span className="rounded-full bg-slate-100 800 px-3 py-1 text-sm">
-              {products.length}
+      {/* Schedule Summary */}
+      <div className="rounded-2xl border border-slate-200 p-5 space-y-3">
+        <h4 className="font-semibold text-slate-800 flex items-center gap-2">
+          <Calendar size={18} className="text-green-700" /> Schedule Details
+        </h4>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className="text-slate-500 block">Starts On</span>
+            <span className="font-medium text-slate-900">
+              {schedule.startDate || "N/A"} at {schedule.startTime || "00:00"}
             </span>
-
           </div>
+          <div>
+            <span className="text-slate-500 block">Ends On</span>
+            <span className="font-medium text-slate-900">
+              {schedule.endDate || "N/A"} at {schedule.endTime || "00:00"}
+            </span>
+          </div>
+        </div>
+      </div>
 
-          <div className="space-y-3 max-h-80 overflow-y-auto">
+      {/* Products Summary */}
+      <div className="rounded-2xl border border-slate-200 p-5 space-y-3">
+        <h4 className="font-semibold text-slate-800 flex items-center gap-2">
+          <Package size={18} className="text-green-700" /> Selected Products ({products.length})
+        </h4>
 
-            {products.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-8 text-center text-slate-500">
-                No products selected.
-              </div>
-            ) : (
-              products.map((product) => (
-                <div
-                  key={product.id}
-                  className="rounded-lg border p-4 flex items-center justify-between"
-                >
+        {products.length === 0 ? (
+          <p className="text-sm text-slate-500">No products selected.</p>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {products.map((item, index) => {
+              const itemKey = item._id || item.id || `product-item-${index}`;
+              return (
+                <div key={itemKey} className="flex items-center justify-between py-3">
                   <div>
-                    <h4 className="font-medium">
-                      {product.name}
-                    </h4>
-
-                    <p className="text-sm text-slate-500">
-                      {product.category}
-                    </p>
+                    <h5 className="font-medium text-slate-900">{item.name}</h5>
+                    <p className="text-xs text-slate-500">{item.category}</p>
                   </div>
-
                   <div className="text-right">
-
-                    <p className="font-semibold">
-                      ₹
-                      {product.festivePrice ||
-                        product.price}
-                    </p>
-
-                    {product.festivePrice && (
-                      <p className="text-xs line-through text-slate-400">
-                        ₹{product.price}
-                      </p>
-                    )}
-
+                    <span className="font-bold text-slate-900">
+                      ₹{item.festivePrice ?? item.price}
+                    </span>
+                    <span className="text-xs text-slate-500 block">
+                      Qty: {item.quantity || 1}
+                    </span>
                   </div>
-
                 </div>
-              ))
-            )}
-
+              );
+            })}
           </div>
-
-        </div>
-
+        )}
       </div>
-            {/* Appearance */}
-
-      <div className="rounded-xl border bg-white 900 border-slate-700">
-
-        <div className="border-b px-6 py-4 flex items-center gap-2">
-          <Palette className="text-pink-500" size={18} />
-          <h3 className="font-semibold">
-            Appearance
-          </h3>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-6 p-6">
-
-          <div>
-            <p className="text-xs uppercase text-slate-500">
-              Theme
-            </p>
-
-            <p className="font-medium mt-1">
-              {appearance.theme || "--"}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs uppercase text-slate-500">
-              Primary Color
-            </p>
-
-            <div className="flex items-center gap-3 mt-2">
-              <div
-                className="w-6 h-6 rounded-full border"
-                style={{
-                  background:
-                    appearance.primaryColor ||
-                    "#f97316",
-                }}
-              />
-
-              <span>
-                {appearance.primaryColor ||
-                  "#f97316"}
-              </span>
-            </div>
-          </div>
-
-          <div>
-            <p className="text-xs uppercase text-slate-500">
-              Banner
-            </p>
-
-            <p className="mt-1 font-medium">
-              {appearance.banner
-                ? "Uploaded"
-                : "Not Uploaded"}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs uppercase text-slate-500">
-              Decorative Effects
-            </p>
-
-            <p className="mt-1 font-medium">
-              {appearance.effects?.length || 0} Enabled
-            </p>
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* Schedule */}
-
-      <div className="rounded-xl border bg-white 900 border-slate-700">
-
-        <div className="border-b px-6 py-4 flex items-center gap-2">
-
-          <CalendarDays
-            className="text-green-500"
-            size={18}
-          />
-
-          <h3 className="font-semibold">
-            Schedule
-          </h3>
-
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-6 p-6">
-
-          <div>
-
-            <p className="text-xs uppercase text-slate-500">
-              Publish
-            </p>
-
-            <p className="font-medium mt-1">
-              {schedule.startDate || "--"}{" "}
-              {schedule.startTime || "--"}
-            </p>
-
-          </div>
-
-          <div>
-
-            <p className="text-xs uppercase text-slate-500">
-              End
-            </p>
-
-            <p className="font-medium mt-1">
-              {schedule.endDate || "--"}{" "}
-              {schedule.endTime || "--"}
-            </p>
-
-          </div>
-
-          <div>
-
-            <p className="text-xs uppercase text-slate-500">
-              Timezone
-            </p>
-
-            <p className="font-medium mt-1">
-              {schedule.timezone || "--"}
-            </p>
-
-          </div>
-
-          <div>
-
-            <p className="text-xs uppercase text-slate-500">
-              Auto Publish
-            </p>
-
-            <p className="font-medium mt-1">
-              {schedule.autoPublish
-                ? "Enabled"
-                : "Disabled"}
-            </p>
-
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* Validation */}
-
-      <div className="rounded-xl border bg-emerald-50 -emerald-900/10 border-emerald-200 border-emerald-800 p-6">
-
-        <div className="flex items-center gap-2 mb-5">
-
-          <CheckCircle2
-            className="text-emerald-600"
-            size={20}
-          />
-
-          <h3 className="font-semibold">
-            Ready To Publish
-          </h3>
-
-        </div>
-
-        <div className="space-y-4">
-
-          <div className="flex items-center gap-3">
-            <CheckCircle2
-              size={18}
-              className="text-emerald-600"
-            />
-
-            <span>
-              Basic information completed
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <CheckCircle2
-              size={18}
-              className="text-emerald-600"
-            />
-
-            <span>
-              Products selected
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <CheckCircle2
-              size={18}
-              className="text-emerald-600"
-            />
-
-            <span>
-              Appearance configured
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <CheckCircle2
-              size={18}
-              className="text-emerald-600"
-            />
-
-            <span>
-              Schedule configured
-            </span>
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* Final Card */}
-
-      <div className="rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white p-8">
-
-        <div className="flex items-center justify-between">
-
-          <div>
-
-            <h3 className="text-2xl font-bold">
-              Your Festive Menu is Ready 🎉
-            </h3>
-
-            <p className="mt-2 text-orange-100">
-              Review everything once before publishing.
-            </p>
-
-          </div>
-
-          <Clock3 size={48} />
-
-        </div>
-
-      </div>
-
     </div>
   );
 }
