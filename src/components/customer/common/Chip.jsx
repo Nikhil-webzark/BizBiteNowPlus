@@ -28,18 +28,21 @@ const variants = {
 
 const sizes = {
   sm: {
-    wrapper: "h-8 px-3 text-xs gap-1",
-    close: 14,
+    wrapper: "h-7 px-2.5 text-[11px] gap-1 lg:h-8 lg:px-3 lg:text-xs",
+    close: 12,
+    closeLg: 14,
   },
 
   md: {
-    wrapper: "h-10 px-4 text-sm gap-2",
-    close: 16,
+    wrapper: "h-8 px-3 text-xs gap-1.5 lg:h-10 lg:px-4 lg:text-sm lg:gap-2",
+    close: 14,
+    closeLg: 16,
   },
 
   lg: {
-    wrapper: "h-12 px-5 text-base gap-2",
-    close: 18,
+    wrapper: "h-9 px-4 text-sm gap-1.5 lg:h-12 lg:px-5 lg:text-base lg:gap-2",
+    close: 16,
+    closeLg: 18,
   },
 };
 
@@ -80,10 +83,9 @@ const Chip = ({
         transition-all
         duration-200
 
-        ${
-          disabled
-            ? "cursor-not-allowed opacity-50"
-            : "hover:scale-105 active:scale-95"
+        ${disabled
+          ? "cursor-not-allowed opacity-50"
+          : "hover:scale-105 active:scale-95"
         }
 
         ${sizes[size].wrapper}
@@ -114,7 +116,8 @@ const Chip = ({
             hover:bg-black/10
           "
         >
-          <X size={sizes[size].close} />
+          <X size={sizes[size].close} className="lg:hidden" />
+          <X size={sizes[size].closeLg} className="hidden lg:block" />
         </span>
       )}
     </button>

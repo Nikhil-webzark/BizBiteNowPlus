@@ -4,6 +4,38 @@ import {
   Check,
 } from "lucide-react";
 
+// Backend sends categories as plain strings (["Burger","Starters"]),
+// not { id, name, icon } objects — normalize here so the rest of the
+// component can stay unchanged. "All" is prepended since it isn't
+// part of the backend's category list.
+const EMOJI_BY_CATEGORY = {
+  burger: "🍔",
+  pizza: "🍕",
+  starters: "🥟",
+  drinks: "🥤",
+  beverages: "🥤",
+  dessert: "🍰",
+  desserts: "🍰",
+  biryani: "🍛",
+  rice: "🍚",
+  noodles: "🍜",
+  salad: "🥗",
+  sandwich: "🥪",
+  chinese: "🥡",
+};
+
+const toEmoji = (name = "") =>
+  EMOJI_BY_CATEGORY[name.toLowerCase()] || "🍽️";
+
+const normalizeCategories = (categories = []) => {
+  const normalized = categories.map((item) =>
+    typeof item === "string"
+      ? { id: item, name: item, icon: toEmoji(item) }
+      : { icon: toEmoji(item.name), ...item }
+  );
+  return [{ id: "all", name: "All", icon: "🍽️" }, ...normalized];
+};
+
 const CategoryTabs = ({
   categories = [],
   activeCategory = "",
@@ -12,12 +44,13 @@ const CategoryTabs = ({
 
   const [open, setOpen] = useState(false);
 
+  const normalizedCategories = normalizeCategories(categories);
 
   const selectedCategory =
-    categories.find(
+    normalizedCategories.find(
       (item) =>
         item.id === activeCategory
-    ) || categories[0];
+    ) || normalizedCategories[0];
 
 
   return (
@@ -113,8 +146,7 @@ const CategoryTabs = ({
               transition-transform
               duration-300
 
-              ${
-                open
+              ${open
                 ? "rotate-180"
                 : ""
               }
@@ -138,7 +170,7 @@ const CategoryTabs = ({
             text-slate-500 dark:text-slate-400
           "
         >
-          {categories.length} categories
+          {normalizedCategories.length} categories
         </span>
 
 
@@ -191,8 +223,8 @@ const CategoryTabs = ({
               >
 
                 {
-                  categories.map(
-                    (category)=>{
+                  normalizedCategories.map(
+                    (category) => {
 
                       const active =
                         category.id === activeCategory;
@@ -204,7 +236,7 @@ const CategoryTabs = ({
 
                           key={category.id}
 
-                          onClick={()=>{
+                          onClick={() => {
                             onChange?.(
                               category.id
                             );
@@ -233,8 +265,7 @@ const CategoryTabs = ({
 
                             transition-all
 
-                            ${
-                              active
+                            ${active
                               ?
                               "text-white shadow-md"
                               :
@@ -245,10 +276,10 @@ const CategoryTabs = ({
                           style={{
                             background:
                               active
-                              ?
-                              "var(--primary)"
-                              :
-                              undefined,
+                                ?
+                                "var(--primary)"
+                                :
+                                undefined,
                           }}
 
                         >

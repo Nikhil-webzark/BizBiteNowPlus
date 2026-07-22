@@ -21,24 +21,36 @@ import useProductStore from "../../store/productStore";
 
 // Normalizes a raw backend product into the shape the UI expects,
 // with safe defaults for fields not confirmed in the documented schema.
-const normalizeProduct = (p) => ({
-  ...p,
-  id: p._id || p.id,
-  available: p.is_available ?? p.available ?? true,
-  isVeg: typeof p.isVeg === "boolean" ? p.isVeg : null, // null = unknown, don't filter it out
-  rating: p.rating || { average: 0, count: 0 },
-  bestseller: p.bestseller ?? false,
-  featured: p.featured ?? false,
-  originalPrice: p.originalPrice ?? null,
-  preparationTime: p.preparationTime ?? null,
-  image: p.image || p.imageUrl || null,
-});
+const normalizeProduct = (p) => {
+  // backend sends `is_veg` (boolean) and/or `food_type` ("veg"/"non-veg"),
+  // not `isVeg` — map whichever is present, else unknown (null)
+  let isVeg = null;
+  if (typeof p.isVeg === "boolean") isVeg = p.isVeg;
+  else if (typeof p.is_veg === "boolean") isVeg = p.is_veg;
+  else if (typeof p.food_type === "string") isVeg = p.food_type.toLowerCase() === "veg";
+
+  return {
+    ...p,
+    id: p._id || p.id,
+    available: p.is_available ?? p.available ?? true,
+    isVeg,
+    rating:
+      typeof p.rating === "number"
+        ? { average: p.rating, count: p.total_reviews ?? 0 }
+        : p.rating || { average: 0, count: 0 },
+    bestseller: p.bestseller ?? false,
+    featured: p.featured ?? false,
+    originalPrice: p.originalPrice ?? null,
+    preparationTime: p.preparationTime ?? null,
+    image: p.image || p.imageUrl || null,
+  };
+};
 
 const Menu = () => {
   const cartItems = useCartStore((state) => state.items);
-const addToCart = useCartStore((state) => state.addToCart);
-const updateCartItem = useCartStore((state) => state.updateCartItem);
-const removeCartItem = useCartStore((state) => state.removeCartItem);
+  const addToCart = useCartStore((state) => state.addToCart);
+  const updateCartItem = useCartStore((state) => state.updateCartItem);
+  const removeCartItem = useCartStore((state) => state.removeCartItem);
   const navigate = useNavigate();
   const { favouriteProducts, toggleFavourite } = useFavourite();
 
@@ -58,6 +70,7 @@ const removeCartItem = useCartStore((state) => state.removeCartItem);
   const [activeCategory, setActiveCategory] = useState("all");
   const [vegType, setVegType] = useState("all");
   const [sortBy, setSortBy] = useState("featured");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [filters] = useState({
     bestseller: false,
@@ -105,6 +118,16 @@ const removeCartItem = useCartStore((state) => state.removeCartItem);
       products = products.filter((item) => item.originalPrice);
     }
 
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      products = products.filter(
+        (item) =>
+          item.name?.toLowerCase().includes(q) ||
+          item.description?.toLowerCase().includes(q) ||
+          item.category?.toLowerCase().includes(q)
+      );
+    }
+
     switch (sortBy) {
       case "price-low":
         products.sort((a, b) => a.price - b.price);
@@ -129,12 +152,12 @@ const removeCartItem = useCartStore((state) => state.removeCartItem);
     }
 
     return products;
-  }, [normalizedProducts, vegType, filters, sortBy]);
+  }, [normalizedProducts, vegType, filters, sortBy, searchQuery]);
 
- const getCartItem = (productId) =>
-  cartItems.find(
-    (item) => (item.product_id?._id || item.product_id) === productId
-  );
+  const getCartItem = (productId) =>
+    cartItems.find(
+      (item) => (item.product_id?._id || item.product_id) === productId
+    );
 
   if (loading) {
     return <MenuPageSkeleton />;
@@ -159,7 +182,7 @@ const removeCartItem = useCartStore((state) => state.removeCartItem);
       className="space-y-6"
     >
       <div className="w-full min-w-0 max-w-[1760px] space-y-6 pb-28 px-1 sm:px-2">
-        <div className="w-full flex items-center dark:bg-[#181A1B] border border-transparent dark:border-[#A9BDCF]/40 z-50 mt-5 lg:mt-0 rounded-xl p-2 justify-between">
+        <div className="w-full flex items-center justify-between mt-5 lg:mt-0">
           <SectionHeader
             title="Our Menu"
             subtitle="Freshly prepared dishes made just for you."
@@ -167,13 +190,37 @@ const removeCartItem = useCartStore((state) => state.removeCartItem);
 
           <Link
             to="/customer/notifications"
-            className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-slate-200 transition hover:bg-slate-300"
+            className="relative flex h-10 w-10 items-center justify-center rounded-full transition-colors bg-slate-100/70 hover:bg-slate-200/70 dark:bg-white/5 dark:hover:bg-white/10"
           >
-            <Bell size={22} className="text-slate-700" />
-            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+            <Bell size={20} strokeWidth={1.75} className="text-slate-600 dark:text-slate-300" />
+            <span className="absolute right-0 top-0 flex h-[16px] w-[16px] items-center justify-center rounded-full bg-red-500 text-[9px] font-semibold text-white ring-2 ring-white dark:ring-[#181A1B]">
               3
             </span>
           </Link>
+        </div>
+
+        <div className="relative px-1">
+          <svg
+            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search for dishes, categories..."
+            className="w-full rounded-full border border-slate-200 bg-slate-50 py-2.5 pl-11 pr-4 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-slate-300 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:bg-white/10"
+          />
         </div>
 
         <div className="lg:hidden">
@@ -192,31 +239,28 @@ const removeCartItem = useCartStore((state) => state.removeCartItem);
           />
         </div>
 
-        <div className="relative flex flex-col gap-5 px-4 lg:px-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <>
-              <div className="relative lg:hidden">
-                <div className="flex items-center justify-between w-full">
-                  <CompactVegToggle value={vegType} onChange={setVegType} />
-                  <CompactSortDropdown value={sortBy} onChange={setSortBy} />
-                </div>
-              </div>
-              <div className="hidden lg:block">
-                <VegToggle value={vegType} onChange={setVegType} />
-              </div>
-            </>
-            <div className="hidden lg:block">
-              <SortDropdown value={sortBy} onChange={setSortBy} />
-            </div>
+        <div className="relative flex items-center justify-between gap-3 px-4 lg:px-6">
+          <div className="lg:hidden">
+            <CompactVegToggle value={vegType} onChange={setVegType} />
+          </div>
+          <div className="hidden lg:block">
+            <VegToggle value={vegType} onChange={setVegType} />
+          </div>
+
+          <div className="lg:hidden">
+            <CompactSortDropdown value={sortBy} onChange={setSortBy} />
+          </div>
+          <div className="hidden lg:block">
+            <SortDropdown value={sortBy} onChange={setSortBy} />
           </div>
         </div>
 
         <section className="w-full space-y-6 px-4 lg:px-6">
-          <div>
-            <p className="mt-1 text-slate-500">
-              {filteredProducts.length} items available
+          {searchQuery.trim() && (
+            <p className="text-sm text-slate-500">
+              {filteredProducts.length} result{filteredProducts.length !== 1 ? "s" : ""} for "{searchQuery.trim()}"
             </p>
-          </div>
+          )}
 
           {filteredProducts.length === 0 ? (
             <div className="rounded-[28px] border-2 border-dashed border-slate-300 dark:border-[#A9BDCF]/40 bg-white dark:bg-[#181A1B] px-6 py-16 text-center">
@@ -237,37 +281,37 @@ const removeCartItem = useCartStore((state) => state.removeCartItem);
                     quantity={getCartItem(product.id)?.quantity ?? 0}
                     isFavourite={favouriteProducts.some((item) => item.id === product.id)}
                     onFavourite={() => toggleFavourite(product)}
-onAdd={() => addToCart({
-  product_id: product._id || product.id,
-  quantity: 1,
-})}
+                    onAdd={() => addToCart({
+                      product_id: product._id || product.id,
+                      quantity: 1,
+                    })}
 
-onIncrease={async () => {
-  const item = getCartItem(product.id);
+                    onIncrease={async () => {
+                      const item = getCartItem(product.id);
 
- if (!item) {
-  await addToCart({
-    product_id: product._id || product.id,
-    quantity: 1,
-  });
-  return;
-}
+                      if (!item) {
+                        await addToCart({
+                          product_id: product._id || product.id,
+                          quantity: 1,
+                        });
+                        return;
+                      }
 
-  await updateCartItem(item.id, item.quantity + 1);
-}}
+                      await updateCartItem(item.id, item.quantity + 1);
+                    }}
 
-onDecrease={async () => {
-  const item = getCartItem(product.id);
+                    onDecrease={async () => {
+                      const item = getCartItem(product.id);
 
-  if (!item) return;
+                      if (!item) return;
 
-  if (item.quantity <= 1) {
-    await removeCartItem(item.id);
-    return;
-  }
+                      if (item.quantity <= 1) {
+                        await removeCartItem(item.id);
+                        return;
+                      }
 
-  await updateCartItem(item.id, item.quantity - 1);
-}}
+                      await updateCartItem(item.id, item.quantity - 1);
+                    }}
                     onClick={() => navigate(`/customer/product/${product.id}`)}
                   />
                 ))}
@@ -282,31 +326,31 @@ onDecrease={async () => {
                       quantity={getCartItem(product.id)?.quantity ?? 0}
                       isFavourite={favouriteProducts.some((item) => item.id === product.id)}
                       onFavourite={() => toggleFavourite(product)}
-onAdd={() => addToCart(product)}
+                      onAdd={() => addToCart(product)}
 
-onIncrease={async () => {
-  const item = getCartItem(product.id);
+                      onIncrease={async () => {
+                        const item = getCartItem(product.id);
 
-  if (!item) {
-    await addToCart(product);
-    return;
-  }
+                        if (!item) {
+                          await addToCart(product);
+                          return;
+                        }
 
-  await updateCartItem(item.id, item.quantity + 1);
-}}
+                        await updateCartItem(item.id, item.quantity + 1);
+                      }}
 
-onDecrease={async () => {
-  const item = getCartItem(product.id);
+                      onDecrease={async () => {
+                        const item = getCartItem(product.id);
 
-  if (!item) return;
+                        if (!item) return;
 
-  if (item.quantity <= 1) {
-    await removeCartItem(item.id);
-    return;
-  }
+                        if (item.quantity <= 1) {
+                          await removeCartItem(item.id);
+                          return;
+                        }
 
-  await updateCartItem(item.id, item.quantity - 1);
-}}
+                        await updateCartItem(item.id, item.quantity - 1);
+                      }}
                       onClick={() => navigate(`/customer/product/${product.id}`)}
                     />
                   ))}
