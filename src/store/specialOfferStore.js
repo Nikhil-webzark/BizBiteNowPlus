@@ -4,7 +4,7 @@ import {
   DEFAULT_TEMPLATES,
   FESTIVE_VALIDITY_DAYS,
   fillTemplate,
-} from "../../../data/occasionTemplate"; // Aapka occasionTemplate path
+} from "../../../BizBiteNowPlus-New/src/data/occasionTemplate"; // Aapka occasionTemplate path
 
 
 // Utility Functions
