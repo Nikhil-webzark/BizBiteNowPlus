@@ -11,28 +11,21 @@ import MenuListCard from "../../components/customer/menu/MenuListCard";
 import CompactCategoryTabs from "../../components/customer/menu/CompactCategoryTabs";
 import CompactSortDropdown from "../../components/customer/menu/CompactSortDropdown";
 import CompactVegToggle from "../../components/customer/menu/CompactVegToggle";
-import { useCart } from "../../context/CartContext";
 import { Bell } from "lucide-react";
 import MenuPageSkeleton from "../../components/customer/skeleton/MenuPageSkeleton";
 import { useFavourite } from "../../context/FavouriteContext";
 import useAuthStore from "../../store/authStore";
 import useProductStore from "../../store/productStore";
+import useCartStore from "../../api/stores/customerstore/cartStore";
 
 const PAGE_SIZE = 12;
-
-// Confirmed real backend fields: _id, seller_id, name, price, description,
-// category (string name), image, is_available, variants[], addons[].
-// isVeg / rating / bestseller / featured / originalPrice / preparationTime
-// are NOT returned by the backend today — defaulted here so every original
-// filter/sort/toggle keeps working without crashing, ready to "light up"
-// the moment the backend actually starts sending real values.
 
 const normalizeProduct = (p) => ({
   ...p,
   id: p._id || p.id,
-  available: p.is_available ?? p.available ?? true,
+  available: p.is_available ?? true,
 
-  // Now REAL fields from backend — mapped correctly
+  // Now REAL fields confirmed from backend
   isVeg: typeof p.is_veg === "boolean" ? p.is_veg : true,
   rating: {
     average: typeof p.rating === "number" ? p.rating : 0,
@@ -51,23 +44,14 @@ const normalizeProduct = (p) => ({
 });
 
 const Menu = () => {
-  const { cartItems, addItem, updateItem } = useCart();
   const navigate = useNavigate();
   const { favouriteProducts, toggleFavourite } = useFavourite();
 
   const sellerId = useAuthStore((state) => state.profile?.seller_id);
 
   const storefront = useProductStore((state) => state.storefront);
-  const categories = useProductStore((state) => state.categories); // array of strings
-
-  const categoryOptions = useMemo(
-    () => [
-      { id: "all", name: "All", icon: "🍽️" },
-      ...categories.map((cat) => ({ id: cat, name: cat, icon: "🍴" })),
-    ],
-    [categories],
-  );
-  const loading = useProductStore((state) => state.loading);
+  const categories = useProductStore((state) => state.categories);
+  const productLoading = useProductStore((state) => state.loading);
   const error = useProductStore((state) => state.error);
   const fetchStorefrontCatalog = useProductStore(
     (state) => state.fetchStorefrontCatalog,
@@ -76,6 +60,13 @@ const Menu = () => {
     (state) => state.fetchStorefrontCategories,
   );
 
+  // Zustand cart store — replaces CartContext entirely
+  const cartItems = useCartStore((state) => state.items);
+  const addToCart = useCartStore((state) => state.addToCart);
+  const updateCartItem = useCartStore((state) => state.updateCartItem);
+  const removeCartItem = useCartStore((state) => state.removeCartItem);
+  const fetchCart = useCartStore((state) => state.fetchCart);
+
   const [activeCategory, setActiveCategory] = useState("all");
   const [vegType, setVegType] = useState("all");
   const [sortBy, setSortBy] = useState("featured");
@@ -83,18 +74,20 @@ const Menu = () => {
   const [loadingMore, setLoadingMore] = useState(false);
 
   const loadMoreRef = useRef(null);
-
+  const categoryOptions = useMemo(
+    () => [
+      { id: "all", name: "All", icon: "🍽️" },
+      ...categories.map((cat) => ({ id: cat, name: cat, icon: "🍴" })),
+    ],
+    [categories],
+  );
   const [filters] = useState({
     bestseller: false,
     offers: false,
     rating: false,
     available: true,
   });
-  const handleCategoryChange = useCallback((category) => {
-    setActiveCategory(category);
-    setVisibleCount(PAGE_SIZE);
-  }, []);
-  // category sent as the plain string name — confirmed backend contract
+
   useEffect(() => {
     if (!sellerId) return;
 
@@ -102,12 +95,18 @@ const Menu = () => {
     fetchStorefrontCatalog(sellerId, {
       category: activeCategory !== "all" ? activeCategory : undefined,
     });
+    setVisibleCount(PAGE_SIZE);
   }, [
     sellerId,
     activeCategory,
     fetchStorefrontCatalog,
     fetchStorefrontCategories,
   ]);
+
+  // Load the cart once on mount so quantities reflect what's already added
+  useEffect(() => {
+    fetchCart().catch(() => {});
+  }, [fetchCart]);
 
   const normalizedProducts = useMemo(
     () => storefront.map(normalizeProduct),
@@ -123,7 +122,6 @@ const Menu = () => {
     if (vegType === "nonveg") {
       products = products.filter((item) => item.isVeg === false);
     }
-
     if (filters.available) {
       products = products.filter((item) => item.available);
     }
@@ -163,8 +161,6 @@ const Menu = () => {
     return products;
   }, [normalizedProducts, vegType, filters, sortBy]);
 
-  // Client-side pagination window — backend returns everything in one call,
-  // no limit/cursor support exists, so infinite scroll is simulated here.
   const visibleProducts = filteredProducts.slice(0, visibleCount);
   const hasMore = visibleCount < filteredProducts.length;
 
@@ -193,10 +189,42 @@ const Menu = () => {
     return () => observer.disconnect();
   }, [hasMore, loadingMore, loadMore]);
 
+  // ⚠️ Field name assumption: matching on item.product_id since that's what
+  // useCartStore.addToCart sends as the payload key. Confirm this is also
+  // what the backend's GET /cart response returns per item — if the real
+  // response uses a nested `item.product._id` instead, update this line.
   const getCartItem = (productId) =>
-    cartItems.find((item) => item.productId === productId);
+    cartItems.find(
+      (item) =>
+        (item.product_id ?? item.productId ?? item.product?._id) === productId,
+    );
 
-  if (loading) {
+  const handleAdd = (product) => addToCart(product).catch(() => {});
+
+  const handleIncrease = (product) => {
+    const existing = getCartItem(product.id);
+    if (existing) {
+      updateCartItem(existing._id || existing.id, existing.quantity + 1).catch(
+        () => {},
+      );
+    } else {
+      addToCart(product).catch(() => {});
+    }
+  };
+
+  const handleDecrease = (product) => {
+    const existing = getCartItem(product.id);
+    if (!existing) return;
+    if (existing.quantity <= 1) {
+      removeCartItem(existing._id || existing.id).catch(() => {});
+    } else {
+      updateCartItem(existing._id || existing.id, existing.quantity - 1).catch(
+        () => {},
+      );
+    }
+  };
+
+  if (productLoading) {
     return <MenuPageSkeleton />;
   }
 
@@ -224,7 +252,6 @@ const Menu = () => {
             title="Our Menu"
             subtitle="Freshly prepared dishes made just for you."
           />
-
           <Link
             to="/customer/notifications"
             className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-slate-200 transition hover:bg-slate-300"
@@ -236,16 +263,20 @@ const Menu = () => {
           </Link>
         </div>
 
-        <CompactCategoryTabs
-          categories={categoryOptions}
-          activeCategory={activeCategory}
-          onChange={handleCategoryChange}
-        />
-        <CategoryTabs
-          categories={categoryOptions}
-          activeCategory={activeCategory}
-          onChange={handleCategoryChange}
-        />
+        <div className="lg:hidden">
+          <CompactCategoryTabs
+            categories={categoryOptions}
+            activeCategory={activeCategory}
+            onChange={setActiveCategory}
+          />
+        </div>
+        <div className="hidden lg:block">
+          <CategoryTabs
+            categories={categoryOptions}
+            activeCategory={activeCategory}
+            onChange={setActiveCategory}
+          />
+        </div>
 
         <div className="relative flex flex-col gap-5 px-4 lg:px-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -292,12 +323,9 @@ const Menu = () => {
                       (item) => item.id === product.id,
                     )}
                     onFavourite={() => toggleFavourite(product)}
-                    onAdd={() => addItem(product, 1)}
-                    onIncrease={() => addItem(product, 1)}
-                    onDecrease={() => {
-                      const item = getCartItem(product.id);
-                      if (item) updateItem(item.id, item.quantity - 1);
-                    }}
+                    onAdd={() => handleAdd(product)}
+                    onIncrease={() => handleIncrease(product)}
+                    onDecrease={() => handleDecrease(product)}
                     onClick={() => navigate(`/customer/product/${product.id}`)}
                   />
                 ))}
@@ -314,12 +342,9 @@ const Menu = () => {
                         (item) => item.id === product.id,
                       )}
                       onFavourite={() => toggleFavourite(product)}
-                      onAdd={() => addItem(product, 1)}
-                      onIncrease={() => addItem(product, 1)}
-                      onDecrease={() => {
-                        const item = getCartItem(product.id);
-                        if (item) updateItem(item.id, item.quantity - 1);
-                      }}
+                      onAdd={() => handleAdd(product)}
+                      onIncrease={() => handleIncrease(product)}
+                      onDecrease={() => handleDecrease(product)}
                       onClick={() =>
                         navigate(`/customer/product/${product.id}`)
                       }

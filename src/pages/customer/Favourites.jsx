@@ -8,9 +8,7 @@ import ProductCard from "../../components/customer/menu/ProductCard";
 import MenuListCard from "../../components/customer/menu/MenuListCard";
 import MenuGrid from "../../components/customer/menu/MenuGrid";
 import MenuPageSkeleton from "../../components/customer/skeleton/MenuPageSkeleton";
-
-import { useCart } from "../../context/CartContext";
-
+import useCartStore from "../../api/stores/customerstore/cartStore";
 import {
   getFavorites,
   toggleFavorite,
@@ -21,8 +19,9 @@ const CUSTOMER_ID = "CUSTOMER_001";
 const Favourites = () => {
   const navigate = useNavigate();
 
-  const { cartItems, addItem, updateItem } =
-    useCart();
+const cartItems = useCartStore((state) => state.items);
+const refreshCart = useCartStore((state) => state.fetchCart);
+const clearCart = useCartStore((state) => state.clearCart);
 
   const [loading, setLoading] =
     useState(true);

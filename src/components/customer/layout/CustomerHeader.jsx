@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 
-import { useCart } from "../../../context/CartContext";
+import useCartStore from "../../../api/stores/customerstore/cartStore";
 
 import { getStore, getNotifications } from "../../../api/customerApi";
 
@@ -33,7 +33,7 @@ const CustomerHeader = ({ sidebarExpanded, isDesktop }) => {
     title: "Select your location",
   });
   const wrapperRef = useRef(null);
-  const { cartItems } = useCart();
+  const cartItems = useCartStore((state) => state.items);
 
 const cartCount = cartItems.reduce(
   (total, item) => total + (item.quantity || 1),

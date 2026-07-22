@@ -33,9 +33,9 @@ const ProductCard = ({
 
   return (
     <Card
-      padding="none"
-      className="group overflow-hidden rounded-2xl max-w-[290px] mx-auto"
-    >
+  padding="none"
+  className="group overflow-hidden rounded-2xl w-full"
+>
       {/* Image */}
       <div
         onClick={onClick}

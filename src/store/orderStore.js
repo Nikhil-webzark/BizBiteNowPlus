@@ -12,6 +12,44 @@ const useOrderStore = create((set, get) => ({
   error: null,
 
   // ===========================
+  // FETCH CUSTOMER ORDERS (Customer Panel / Storefront)
+  // ===========================
+  fetchCustomerOrders: async (sellerId, customerPhone) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      // Fallback extraction from localStorage if arguments are missing
+      const seller_id = sellerId || localStorage.getItem("seller_id");
+      const customer_phone = customerPhone || localStorage.getItem("customer_phone");
+
+      if (!seller_id || !customer_phone) {
+        throw new Error("Seller ID aur customer phone number required hain!");
+      }
+
+      const res = await API.get("/orders/customer-orders", {
+        params: {
+          seller_id,
+          customer_phone,
+        },
+      });
+
+      const list = res.data.orders || res.data.data || res.data;
+
+      set({ orders: Array.isArray(list) ? list : [] });
+      return list;
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        err.message ||
+        "Unable to load customer orders";
+      set({ error: msg });
+      throw err;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  // ===========================
   // ASSIGN ORDER TO DELIVERY BOY (protected, PLUS)
   // ===========================
   assignOrder: async (order_id, delivery_boy_id) => {
@@ -43,7 +81,7 @@ const useOrderStore = create((set, get) => ({
   },
 
   // ===========================
-  // LIST ORDERS (protected, tier-based history window)
+  // LIST ORDERS (protected, tier-based history window - Seller)
   // ===========================
   fetchOrders: async (order_type) => {
     try {
@@ -210,8 +248,7 @@ const useOrderStore = create((set, get) => ({
   },
 
   // ===========================
-  // LOCAL SELECTOR — find an order already in the store by any id shape
-  // (no GET /orders/:id route exists, so OrderDetails relies on this)
+  // LOCAL SELECTOR
   // ===========================
   getOrderById: (id) => {
     return get().orders.find(

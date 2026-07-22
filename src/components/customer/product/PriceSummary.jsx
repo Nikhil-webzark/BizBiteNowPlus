@@ -2,7 +2,7 @@ import {
   Receipt,
   ShoppingBag,
 } from "lucide-react";
-import { useCart } from "../../../context/CartContext";
+import useCartStore from "../../../api/stores/customerstore/cartStore";
 
 export default function PriceSummary({
   product,
@@ -11,7 +11,7 @@ export default function PriceSummary({
   selectedSize,
   selectedVariant,
 }) {
-  const { addItem } = useCart();
+const addToCart = useCartStore((state) => state.addToCart);
 
   
 
@@ -41,8 +41,8 @@ const subtotal =
   const total =
     subtotal;
 
-const handleAddToCart = () => {
-  addItem({
+const handleAddToCart = async () => {
+  await addToCart({
     ...product,
     quantity,
     selectedSize: size,

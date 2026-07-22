@@ -22,8 +22,8 @@ const QuantitySelector = ({
           flex
           h-9
           w-9
-          md:h-11
-          md:w-11
+          md:h-9
+          md:w-9
           items-center
           justify-center
           border-r
@@ -37,8 +37,8 @@ const QuantitySelector = ({
         "
       >
         <Minus
-          size={16}
-          className="md:h-[18px] md:w-[18px]"
+          size={13}
+          className="md:h-[15px] md:w-[15px]"
           strokeWidth={2.5}
         />
       </button>
@@ -58,8 +58,8 @@ const QuantitySelector = ({
           flex
           h-9
           w-9
-          md:h-11
-          md:w-11
+          md:h-9
+          md:w-9
           items-center
           justify-center
           border-l
@@ -73,8 +73,8 @@ const QuantitySelector = ({
         "
       >
         <Plus
-          size={16}
-          className="md:h-[18px] md:w-[18px]"
+          size={13}
+          className="md:h-[15px] md:w-[15px]"
           strokeWidth={2.5}
         />
       </button>

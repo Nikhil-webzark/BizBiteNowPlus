@@ -63,6 +63,7 @@ import PrivacySecurity from "./pages/customer/PrivacySecurity";
 import Favourites from "./pages/customer/Favourites";
 import Notifications from "./pages/customer/Notifications";
 import CustomerRegister from "./pages/Auth/CustomerRegister";
+import QRScanPage from "./components/customer/home/scanner/QrScanPage";
 export default function App() {
   return (
     <div
@@ -97,6 +98,7 @@ export default function App() {
 
         <Route path="/customer" element={<CustomerLayout />}>
           <Route index element={<Home />} />
+          <Route path="scan-qr" element={<QRScanPage />} />
           <Route path="notifications" element={<Notifications />} />
 
           <Route path="menu" element={<Menu />} />

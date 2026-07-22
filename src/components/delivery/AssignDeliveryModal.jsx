@@ -76,6 +76,7 @@ export default function AssignDeliveryModal({
               deliveryBoys.map((boy) => {
                 const boyId = boy._id || boy.id;
                 const isAssigning = assigningId === boyId;
+                const displayPhone = boy.phone || boy.phoneNumber || "N/A";
 
                 return (
                   <div
@@ -93,9 +94,9 @@ export default function AssignDeliveryModal({
                         </p>
 
                         <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
-                          {boy.phone && (
+                          {displayPhone !== "N/A" && (
                             <span className="flex items-center gap-1">
-                              <Phone size={12} /> {boy.phone}
+                              <Phone size={12} /> {displayPhone}
                             </span>
                           )}
 

@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Bell, LayoutGrid, ShoppingCart, User, Search } from "lucide-react";
-import { allProducts } from "../../data/products";
 import { useCart } from "../../context/CartContext";
-import NotificationPanel from "./NotificationPanel";
 import { isCustomerLoggedIn, getMyProfile } from "../../api/customer/authApi";
 
 const storeInfo = {
@@ -12,22 +10,13 @@ const storeInfo = {
   brandColor: "#E8622D",
 };
 
-const notificationTags = ["New", "Offer", "Trending", "Back in stock", "Chef's pick"];
-const notifications = allProducts.slice(0, 5).map((p, i) => ({
-  id: p.id,
-  image: p.image,
-  tag: notificationTags[i % notificationTags.length],
-  title: p.name,
-  meta: p.category,
-  price: p.price,
-}));
+
 
 const CustomerHeader = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { totalItems } = useCart();
   const [customerName, setCustomerName] = useState(null);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [search, setSearch] = useState("");
   const debounceRef = useRef(null);
 
@@ -112,27 +101,16 @@ const CustomerHeader = () => {
           </button>
 
           <div className="relative">
-            <button
-              onClick={() => setShowNotifications((v) => !v)}
-              className="relative flex items-center justify-center text-gray-500 shrink-0 rounded-xl hover:bg-[#FBE7DD] hover:text-[#E8622D] transition-colors cursor-pointer"
-              style={{ minHeight: "40px", minWidth: "40px" }}
-            >
-              <Bell size={20} />
-              <span
-                className="absolute rounded-full"
-                style={{ top: "8px", right: "9px", width: "7px", height: "7px", backgroundColor: "#E8622D" }}
-              />
-            </button>
-            {showNotifications && (
-              <NotificationPanel
-                notifications={notifications}
-                onClose={() => setShowNotifications(false)}
-                onBrowseMenu={() => {
-                  setShowNotifications(false);
-                  navigate("/menu");
-                }}
-              />
-            )}
+            <Link
+            to="/customer/notifications"
+            className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-slate-200 transition hover:bg-slate-300"
+          >
+            <Bell size={22} className="text-slate-700" />
+            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+              3
+            </span>
+          </Link>
+          
           </div>
 
           <button

@@ -1,159 +1,236 @@
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import FestiveDealCard from "../../components/customer/home/FestiveDealCard";
+import { useFavourite } from "../../context/FavouriteContext";
 
-import { useCart } from "../../context/CartContext";
-
+import useAuthStore from "../../store/authStore";
+import useProductStore from "../../store/productStore";
+import useCartStore from "../../api/stores/customerstore/cartStore";
+import useTableStore from "../../store/tableStore";
 import HeroBanner from "../../components/customer/hero/HeroBanner";
 
-import { Link } from "react-router-dom";
 import MenuGrid from "../../components/customer/menu/MenuGrid";
 import ProductCard from "../../components/customer/menu/ProductCard";
 
-/* ---------- New Mobile Components ---------- */
-import QROrderCardSkeleton from "../../components/customer/skeleton/QROrderCardSkeleton";
-import BannerSkeleton from "../../components/customer/skeleton/BannerSkeleton";
-import HeroSkeleton from "../../components/customer/skeleton/HeroSkeleton";
-import HorizontalSectionSkeleton from "../../components/customer/skeleton/HorizontalSectionSkeleton";
 import BannerCarousel from "../../components/customer/home/BannerCarousel";
 import QROrderCard from "../../components/customer/home/QROrderCard";
 import DeliveryChecker from "../../components/customer/home/DeliveryChecker";
 import HorizontalSection from "../../components/customer/home/HorizontalSection";
 
-import {
-  getStore,
-  getMenu,
-  getTodaySpecialProducts,
-  getComboMealProducts,
-  getRecentlyOrderedProducts,
-} from "../../api/customerApi";
+import QROrderCardSkeleton from "../../components/customer/skeleton/QROrderCardSkeleton";
+import BannerSkeleton from "../../components/customer/skeleton/BannerSkeleton";
+import HeroSkeleton from "../../components/customer/skeleton/HeroSkeleton";
+import HorizontalSectionSkeleton from "../../components/customer/skeleton/HorizontalSectionSkeleton";
 
-import { useFavourite } from "../../context/FavouriteContext";
+const normalizeProduct = (p) => ({
+  ...p,
+
+  id: p._id || p.id,
+
+  name: p.name,
+
+  price: p.price ?? 0,
+
+  image: p.image,
+
+  description: p.description || "",
+
+  category: p.category || "Other",
+
+  isVeg: typeof p.is_veg === "boolean" ? p.is_veg : true,
+
+  available: p.is_available ?? p.available ?? true,
+
+  rating: {
+    average: p.rating ?? p.rating?.average ?? 0,
+
+    count: p.total_reviews ?? p.rating?.count ?? 0,
+  },
+
+  variants: p.variants || [],
+
+  addons: p.addons || [],
+
+  originalPrice: p.originalPrice || null,
+});
 
 const Home = () => {
   const navigate = useNavigate();
+
+  const sellerId = useAuthStore((s) => s.profile?.seller_id);
+
+  const customerMohalla = useAuthStore((s) => s.profile?.mohalla);
+
+  const resolvedTable = useTableStore((s) => s.resolvedTable);
+  // ======================
+  // PRODUCT STORE
+  // ======================
+
+  const storefront = useProductStore((s) => s.storefront);
+
+  const fullMenu = useProductStore((s) => s.fullMenu);
+
+  const combos = useProductStore((s) => s.combos);
+
+  const festiveDeals = useProductStore((s) => s.festiveDeals);
+  const categories = useProductStore((s) => s.categories);
+  const fetchStorefrontCatalog = useProductStore(
+    (s) => s.fetchStorefrontCatalog,
+  );
+  const fetchStorefrontCategories = useProductStore(
+    (s) => s.fetchStorefrontCategories,
+  );
+
+  const fetchFullMenu = useProductStore((s) => s.fetchFullMenu);
+
+  const fetchCombos = useProductStore((s) => s.fetchCombos);
+
+  const fetchFestiveDeals = useProductStore((s) => s.fetchFestiveDeals);
+
+  const fetchAvailableMohallas = useProductStore(
+    (s) => s.fetchAvailableMohallas,
+  );
+
+  // ======================
+  // CART STORE
+  // ======================
+
+  const cartItems = useCartStore((s) => s.items);
+
+  const addToCart = useCartStore((s) => s.addToCart);
+
+  const updateCartItem = useCartStore((s) => s.updateCartItem);
+
+  const removeCartItem = useCartStore((s) => s.removeCartItem);
+
+  const fetchCart = useCartStore((s) => s.fetchCart);
+
+  const { favouriteProducts, toggleFavourite } = useFavourite();
+
   const [loading, setLoading] = useState(true);
-  const [store, setStore] = useState(null);
 
-  const [menuData, setMenuData] = useState([]);
-const [todaySpecialProducts, setTodaySpecialProducts] = useState([]);
-const [comboMealProducts, setComboMealProducts] = useState([]);
-  
+  const [checkedLocation, setCheckedLocation] = useState("");
 
-  const [recentProducts, setRecentProducts] = useState([]);
+  // ======================
+  // LOAD BACKEND DATA
+  // ======================
 
-  const [offerProducts, setOfferProducts] = useState([]);
-  const { cartItems, addItem, updateItem, removeItem } = useCart();
-  const {
-  favouriteProducts,
-  toggleFavourite,
-} = useFavourite();
-  const increaseQuantity = (product) => {
-    const item = cartItems.find(
-      (cartItem) => cartItem.productId === product.id,
+  useEffect(() => {
+    if (!sellerId) return;
+
+    const loadStorefront = async () => {
+      setLoading(true);
+
+      try {
+        await Promise.all([
+          // Product catalog
+          fetchStorefrontCatalog(sellerId),
+
+          // Category list
+          fetchStorefrontCategories(sellerId),
+
+          // Complete categorized menu
+          fetchFullMenu(sellerId),
+
+          // Combo offers
+          fetchCombos(sellerId),
+
+          // Festive offers
+          fetchFestiveDeals(sellerId),
+
+          // Delivery locations
+          fetchAvailableMohallas(sellerId),
+        ]);
+      } catch (err) {
+        console.error("Storefront error", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStorefront();
+  }, [
+    sellerId,
+    fetchStorefrontCatalog,
+    fetchStorefrontCategories,
+    fetchFullMenu,
+    fetchCombos,
+    fetchFestiveDeals,
+    fetchAvailableMohallas,
+  ]);
+
+  useEffect(() => {
+    fetchCart().catch(() => {});
+  }, [fetchCart]);
+
+  // ======================
+  // NORMALIZE DATA
+  // ======================
+
+  const products = useMemo(
+    () => storefront.map(normalizeProduct),
+    [storefront],
+  );
+  const catalogProducts = products;
+  const menuProducts = useMemo(() => {
+    return fullMenu.flatMap((section) =>
+      section.products.map(normalizeProduct),
+    );
+  }, [fullMenu]);
+
+  const comboProducts = useMemo(() => combos.map(normalizeProduct), [combos]);
+
+  const offerProducts = useMemo(
+    () => products.filter((p) => p.originalPrice && p.originalPrice > p.price),
+    [products],
+  );
+
+  const getCartItem = (productId) =>
+    cartItems.find(
+      (item) =>
+        (item.product_id ?? item.productId ?? item.product?._id) === productId,
     );
 
-    if (!item) {
-      addItem(product);
-      return;
-    }
+  const handleAdd = (product) => addToCart(product).catch(() => {});
 
-    updateItem(item.id, item.quantity + 1);
+  const increaseQuantity = (product) => {
+    const existing = getCartItem(product.id);
+
+    if (existing) {
+      updateCartItem(existing._id, existing.quantity + 1).catch(() => {});
+    } else {
+      handleAdd(product);
+    }
   };
 
   const decreaseQuantity = (product) => {
-    const item = cartItems.find(
-      (cartItem) => cartItem.productId === product.id,
-    );
+    const existing = getCartItem(product.id);
 
-    if (!item) return;
+    if (!existing) return;
 
-    if (item.quantity === 1) {
-      removeItem(item.id);
-      return;
+    if (existing.quantity <= 1) {
+      removeCartItem(existing._id).catch(() => {});
+    } else {
+      updateCartItem(existing._id, existing.quantity - 1).catch(() => {});
     }
-
-    updateItem(item.id, item.quantity - 1);
   };
-  const loadData = async () => {
-    setLoading(true);
 
+  const handleCheckDelivery = async () => {
     try {
-const [
-  storeRes,
-  menuRes,
-  todayRes,
-  comboRes,
-  recentRes,
-] = await Promise.all([
-  getStore(),
-  getMenu(),
-  getTodaySpecialProducts(),
-  getComboMealProducts(),
-  getRecentlyOrderedProducts(),
-]);
+      const locations = await fetchAvailableMohallas(sellerId);
 
-setMenuData(menuRes.data?.data || []);
-setTodaySpecialProducts(todayRes.data?.data || []);
-setComboMealProducts(comboRes.data?.data || []);
-setRecentProducts(recentRes.data?.data || []);
+      const available = locations.some(
+        (m) => m.toLowerCase() === customerMohalla?.toLowerCase(),
+      );
 
-const menu = menuRes.data?.data || [];
+      setCheckedLocation(customerMohalla || "");
 
-      setStore(storeRes.data.data);
-
-      setMenuData(menu);
-
-
-      setOfferProducts(menu.filter((item) => item.originalPrice > item.price));
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+      alert(available ? "Delivery available" : "Delivery unavailable");
+    } catch {
+      alert("Unable to check delivery");
     }
   };
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadData();
-  }, []);
-
- const favouriteCount = useMemo(
-  () => favouriteProducts.length,
-  [favouriteProducts]
-);
-
-  const recentCount = useMemo(() => recentProducts.length, [recentProducts]);
-
-  const offerCount = useMemo(() => offerProducts.length, [offerProducts]);
-  const handleFavourite = async (productId) => {
-    try {
-      await toggleFavorite({
-        customerId: "CUSTOMER_001",
-        productId,
-        storeId: store?.id || "STORE_001",
-      });
-
-      setFavoriteProducts((prev) => {
-        const exists = prev.some((item) => item.id === productId);
-
-        if (exists) {
-          return prev.filter((item) => item.id !== productId);
-        }
-
-        const product = menuData.find((item) => item.id === productId);
-
-        return product ? [...prev, product] : prev;
-      });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-  const mobileBanners =
-    store?.banners?.map((image, index) => ({
-      id: index + 1,
-      image,
-    })) || [];
   return (
     <motion.div
       initial={{
@@ -166,79 +243,119 @@ const menu = menuRes.data?.data || [];
       }}
       transition={{
         duration: 0.4,
-        ease: [0.22, 1, 0.36, 1],
       }}
       className="space-y-6"
     >
       <div
         className="
-    w-full
-    min-w-0
-    max-w-[1760px]
-
-    space-y-6
-    pb-28
-
-    px-1
-    sm:px-2
-    lg:px-10
-  "
+        w-full
+        min-w-0
+        max-w-[1760px]
+        space-y-8
+        pb-28
+        px-2
+        lg:px-10
+      "
       >
-        {/* ========================================================= */}
-        {/* Mobile Home */}
-        {/* ========================================================= */}
+        {/* ======================
+          MOBILE VIEW
+      ======================= */}
 
-        <div className="space-y-5 lg:hidden">
-          <div className="px-1"></div>
-          <div className="px-1">
-            {loading ? (
-              <BannerSkeleton />
-            ) : (
-              <BannerCarousel banners={mobileBanners} />
-            )}
-          </div>
-          <div className="px-1">
-            {loading ? (
-              <QROrderCardSkeleton />
-            ) : (
-              <QROrderCard
-                tableNumber={store?.tableNumber}
-                onScan={() => navigate("/customer/scan-qr")}
-              />
-            )}
-          </div>
-          <div className="px-1">
-            {loading ? (
-              <HorizontalSectionSkeleton />
-            ) : (
-              <HorizontalSection
-                title="Recently Orderd"
-                subtitle="Save more today."
-                buttonText="View All"
-                onViewAll={() => navigate("/customer/orders")}
-                products={recentProducts}
-                cartItems={cartItems}
-                favouriteProducts={favouriteProducts}
-                onProductClick={(product) =>
-                  navigate(`/customer/product/${product.id}`)
-                }
-                onFavourite={handleFavourite}
-                onAdd={addItem}
-                onIncrease={increaseQuantity}
-                onDecrease={decreaseQuantity}
-              />
-            )}
-          </div>
-          <div className="px-1">
-            <DeliveryChecker
-              location={store?.address?.city}
-              onCheck={() => navigate("/customer/address")}
-            />
-          </div>
+        <div className="space-y-6 lg:hidden">
+          {loading ? <BannerSkeleton /> : <BannerCarousel banners={[]} />}
 
           {loading ? (
-            <HorizontalSectionSkeleton />
+            <QROrderCardSkeleton />
           ) : (
+            <QROrderCard
+              tableNumber={resolvedTable?.table_number}
+              onScan={() => navigate("/customer/scan-qr")}
+            />
+          )}
+
+          <DeliveryChecker
+            location={checkedLocation}
+            onCheck={handleCheckDelivery}
+          />
+          {categories.length > 0 && (
+            <section className="space-y-3 px-1">
+              <h2 className="text-lg font-bold text-slate-900">
+                Categories 🍽️
+              </h2>
+
+              <div
+                className="
+flex
+gap-3
+overflow-x-auto
+pb-2
+"
+              >
+                {categories.map((category) => (
+                  <button
+                    key={category}
+                    onClick={() =>
+                      navigate(`/customer/menu?category=${category}`)
+                    }
+                    className="
+whitespace-nowrap
+rounded-full
+bg-slate-100
+px-4
+py-2
+text-sm
+font-semibold
+text-slate-700
+"
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+          {catalogProducts.length > 0 && (
+            <HorizontalSection
+              title="Popular Items 🔥"
+              subtitle="Customer favourites from today's menu."
+              buttonText="View All"
+              onViewAll={() => navigate("/customer/menu")}
+              products={catalogProducts}
+              cartItems={cartItems}
+              favouriteProducts={favouriteProducts}
+              onProductClick={(p) => navigate(`/customer/product/${p.id}`)}
+              onFavourite={(id) =>
+                toggleFavourite(catalogProducts.find((p) => p.id === id))
+              }
+              onAdd={handleAdd}
+              onIncrease={increaseQuantity}
+              onDecrease={decreaseQuantity}
+            />
+          )}
+          {/* FULL MENU */}
+
+          {menuProducts.length > 0 && (
+            <HorizontalSection
+              title="Full Menu 🍽️"
+              subtitle="Explore all dishes available today."
+              buttonText="View All"
+              onViewAll={() => navigate("/customer/menu")}
+              products={menuProducts}
+              cartItems={cartItems}
+              favouriteProducts={favouriteProducts}
+              onProductClick={(p) => navigate(`/customer/product/${p.id}`)}
+              onFavourite={(id) =>
+                toggleFavourite(menuProducts.find((p) => p.id === id))
+              }
+              onAdd={handleAdd}
+              onIncrease={increaseQuantity}
+              onDecrease={decreaseQuantity}
+            />
+          )}
+
+          {/* OFFERS */}
+
+          {offerProducts.length > 0 && (
             <HorizontalSection
               title="Today's Offers 🔥"
               subtitle="Save more today."
@@ -247,166 +364,161 @@ const menu = menuRes.data?.data || [];
               products={offerProducts}
               cartItems={cartItems}
               favouriteProducts={favouriteProducts}
-              onProductClick={(product) =>
-                navigate(`/customer/product/${product.id}`)
-              }
-              onFavourite={handleFavourite}
-              onAdd={addItem}
+              onProductClick={(p) => navigate(`/customer/product/${p.id}`)}
+              onAdd={handleAdd}
               onIncrease={increaseQuantity}
               onDecrease={decreaseQuantity}
             />
           )}
 
-  {loading ? (
-    <HorizontalSectionSkeleton />
-  ) : (
-    <HorizontalSection
-      title="Today's Special 🌟"
-      subtitle="Chef's handpicked favorites."
-      buttonText="View All"
-      onViewAll={() => navigate("/customer/menu")}
-      products={todaySpecialProducts}
-      cartItems={cartItems}
-      favouriteProducts={favouriteProducts}
-      onProductClick={(product) =>
-        navigate(`/customer/product/${product.id}`)
-      }
-      onFavourite={handleFavourite}
-      onAdd={addItem}
-      onIncrease={increaseQuantity}
-      onDecrease={decreaseQuantity}
-    />
-  )}
+          {/* FESTIVE DEALS */}
 
+          {festiveDeals.length > 0 && (
+            <section className="space-y-4">
+              <h2
+                className="
+text-xl
+font-bold
+dark:text-white
+"
+              >
+                Festive Deals 🎉
+              </h2>
 
-  {loading ? (
-    <HorizontalSectionSkeleton />
-  ) : (
-    <HorizontalSection
-      title="Combo Meals 🍱"
-      subtitle="Great taste, better value."
-      buttonText="View All"
-      onViewAll={() => navigate("/customer/menu")}
-      products={comboMealProducts}
-      cartItems={cartItems}
-      favouriteProducts={favouriteProducts}
-      onProductClick={(product) =>
-        navigate(`/customer/product/${product.id}`)
-      }
-      onFavourite={handleFavourite}
-      onAdd={addItem}
-      onIncrease={increaseQuantity}
-      onDecrease={decreaseQuantity}
-    />
-  )}
+              <div
+                className="
+flex
+gap-4
+overflow-x-auto
+pb-2
+"
+              >
+                {festiveDeals.map((deal) => (
+                  <FestiveDealCard key={deal._id} deal={deal} />
+                ))}
+              </div>
+            </section>
+          )}
 
+          {/* COMBOS */}
 
-          {loading ? (
-            <HorizontalSectionSkeleton />
-          ) : (
+          {comboProducts.length > 0 && (
             <HorizontalSection
-              title="Your Favourites ❤️"
-              subtitle="Save more today."
+              title="Combo Meals 🍱"
+              subtitle="Better value meals."
               buttonText="View All"
-              onViewAll={() => navigate("/customer/menu")}
+              products={comboProducts}
+              cartItems={cartItems}
+              favouriteProducts={favouriteProducts}
+              onProductClick={(p) => navigate(`/customer/product/${p.id}`)}
+              onAdd={handleAdd}
+              onIncrease={increaseQuantity}
+              onDecrease={decreaseQuantity}
+            />
+          )}
+
+          {/* FAVORITES */}
+
+          {favouriteProducts.length > 0 && (
+            <HorizontalSection
+              title="Your Favorites ❤️"
+              subtitle="Dishes you love."
+              buttonText="View All"
               products={favouriteProducts}
               cartItems={cartItems}
               favouriteProducts={favouriteProducts}
-              onProductClick={(product) =>
-                navigate(`/customer/product/${product.id}`)
-              }
-              onFavourite={handleFavourite}
-              onAdd={addItem}
+              onProductClick={(p) => navigate(`/customer/product/${p.id}`)}
+              onAdd={handleAdd}
               onIncrease={increaseQuantity}
               onDecrease={decreaseQuantity}
             />
           )}
-          <section className="flex justify-center px-1">
-            <button
-              onClick={() => navigate("/customer/menu")}
-              className="
-      w-[60%]
-      rounded-[14px]
-      py-4
-      text-sm
-      font-semibold
-      text-white
-    "
-              style={{
-                background: "var(--primary)",
-              }}
-            >
-              Browse Full Menu
-            </button>
-          </section>
         </div>
 
-        <div
-          className="
-    hidden
-    space-y-8
-    lg:block
+        {/* ======================
+          DESKTOP VIEW
+      ======================= */}
 
-  "
-        >
+        <div className="hidden lg:block space-y-10">
           {loading ? (
             <HeroSkeleton />
           ) : (
             <HeroBanner
-              banners={store?.banners}
-              logo={store?.logo}
-              name={store?.name}
-              tagline={store?.tagline}
-              deliveryTime={store?.deliveryTime}
-              isOpen={store?.isOpen}
+              banners={[]}
+              logo={null}
+              name="Welcome"
+              tagline="Fresh food prepared for you"
+              deliveryTime=""
+              isOpen={true}
             />
           )}
 
-          
+          {categories.length > 0 && (
+            <section className="space-y-4">
+              <h2
+                className="
+text-2xl
+font-bold
+text-slate-900
+dark:text-white
+"
+              >
+                Categories 🍽️
+              </h2>
 
-          {/* Recently Ordered */}
-
-          {recentCount > 0 && (
-            <section className="space-y-6 px-2 sm:px-4 lg:px-6 xl:px-8">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                    Recently Ordered
-                  </h2>
-
-                  <p className="mt-1 text-slate-500 dark:text-slate-400">
-                    Order your favourites again in one tap.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => navigate("/customer/orders")}
+              <div
+                className="
+flex
+gap-4
+flex-wrap
+"
+              >
+                {categories.map((category) => (
+                  <button
+                    key={category}
+                    onClick={() =>
+                      navigate(`/customer/menu?category=${category}`)
+                    }
+                    className="
+rounded-full
+border
+px-5
+py-2
+font-semibold
+"
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+          {catalogProducts.length > 0 && (
+            <section className="space-y-6">
+              <div>
+                <h2
                   className="
-                text-sm
-                font-semibold
-                transition
-                hover:opacity-80
-                text-[var(--primary)]
-                dark:text-white
-              "
+text-2xl
+font-bold
+dark:text-white
+"
                 >
-                  View Orders
-                </button>
+                  Popular Items 🔥
+                </h2>
+
+                <p className="text-slate-500">Fresh items available now.</p>
               </div>
 
               <MenuGrid>
-                {recentProducts.map((product) => (
+                {catalogProducts.map((product) => (
                   <ProductCard
                     key={product.id}
                     product={product}
-                    quantity={
-                      cartItems.find((item) => item.productId === product.id)
-                        ?.quantity || 0
-                    }
+                    quantity={getCartItem(product.id)?.quantity || 0}
                     isFavourite={favouriteProducts.some(
                       (item) => item.id === product.id,
                     )}
-                    onAdd={() => addItem(product)}
+                    onAdd={() => handleAdd(product)}
                     onIncrease={() => increaseQuantity(product)}
                     onDecrease={() => decreaseQuantity(product)}
                     onFavourite={() => toggleFavourite(product)}
@@ -416,155 +528,143 @@ const menu = menuRes.data?.data || [];
               </MenuGrid>
             </section>
           )}
-          {/* Favourite Items */}
+          {/* FULL MENU */}
 
-          {favouriteCount > 0 && (
-            <section className="space-y-6 px-2 sm:px-4 lg:px-6 xl:px-8">
-              <div className="flex items-center justify-between">
+          {menuProducts.length > 0 && (
+            <section className="space-y-6">
+              <div
+                className="
+                flex
+                items-center
+                justify-between
+                "
+              >
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900">
-                    Your Favorites ❤️
+                  <h2
+                    className="
+                    text-2xl
+                    font-bold
+                    text-slate-900
+                    dark:text-white
+                    "
+                  >
+                    Full Menu 🍽️
                   </h2>
 
-                  <p className="mt-1 text-slate-500">
-                    Dishes you've marked as favourites.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => navigate("/customer/favorites")}
-                  className="
-                text-sm
-                font-semibold
-                transition
-                hover:opacity-80
-                text-[var(--primary)]
-                dark:text-white
-              "
-                >
-                  View All
-                </button>
-              </div>
-
-              <MenuGrid>
-                {favouriteProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    quantity={
-                      cartItems.find((item) => item.productId === product.id)
-                        ?.quantity || 0
-                    }
-                    isFavourite={favouriteProducts.some(
-                      (item) => item.id === product.id,
-                    )}
-                    onAdd={() => addItem(product)}
-                    onIncrease={() => increaseQuantity(product)}
-                    onDecrease={() => decreaseQuantity(product)}
-                    onFavourite={() => toggleFavourite(product)}
-                    onClick={() => navigate(`/customer/product/${product.id}`)}
-                  />
-                ))}
-              </MenuGrid>
-            </section>
-          )}
-        
-
-          {offerCount > 0 && (
-            <section className="space-y-6 px-2 sm:px-4 lg:px-6 xl:px-8">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                    Today's Offers 🔥
-                  </h2>
-
-                  <p className="mt-1 text-slate-500 dark:text-slate-400">
-                    Save more with exclusive deals available today.
-                  </p>
+                  <p className="text-slate-500">Explore our complete menu.</p>
                 </div>
 
                 <button
                   onClick={() => navigate("/customer/menu")}
                   className="
-                text-sm
-                font-semibold
-                transition
-                hover:opacity-80
-                text-[var(--primary)]
-                dark:text-white
-              "
+                  text-sm
+                  font-semibold
+                  text-[var(--primary)]
+                  "
                 >
-                  View All Offers
+                  View Full Menu
                 </button>
               </div>
+
+              <MenuGrid>
+                {menuProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    quantity={getCartItem(product.id)?.quantity || 0}
+                    isFavourite={favouriteProducts.some(
+                      (item) => item.id === product.id,
+                    )}
+                    onAdd={() => handleAdd(product)}
+                    onIncrease={() => increaseQuantity(product)}
+                    onDecrease={() => decreaseQuantity(product)}
+                    onFavourite={() => toggleFavourite(product)}
+                    onClick={() => navigate(`/customer/product/${product.id}`)}
+                  />
+                ))}
+              </MenuGrid>
+            </section>
+          )}
+
+          {/* FESTIVE DEALS */}
+
+          <section className="space-y-6">
+            <h2
+              className="
+text-2xl
+font-bold
+dark:text-white
+"
+            >
+              Festive Deals 🎉
+            </h2>
+
+            <div
+              className="
+grid
+grid-cols-2
+xl:grid-cols-3
+gap-6
+"
+            >
+              {festiveDeals.map((deal) => (
+                <FestiveDealCard key={deal._id} deal={deal} />
+              ))}
+            </div>
+          </section>
+          {/* COMBOS */}
+
+          {comboProducts.length > 0 && (
+            <section className="space-y-6">
+              <h2
+                className="
+                text-2xl
+                font-bold
+                dark:text-white
+                "
+              >
+                Combo Meals 🍱
+              </h2>
+
+              <MenuGrid>
+                {comboProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onAdd={() => handleAdd(product)}
+                    onClick={() => navigate(`/customer/product/${product.id}`)}
+                  />
+                ))}
+              </MenuGrid>
+            </section>
+          )}
+
+          {/* OFFERS */}
+
+          {offerProducts.length > 0 && (
+            <section className="space-y-6">
+              <h2
+                className="
+                text-2xl
+                font-bold
+                dark:text-white
+                "
+              >
+                Today's Offers 🔥
+              </h2>
 
               <MenuGrid>
                 {offerProducts.map((product) => (
                   <ProductCard
                     key={product.id}
                     product={product}
-                    quantity={
-                      cartItems.find((item) => item.productId === product.id)
-                        ?.quantity || 0
-                    }
-                    isFavourite={favouriteProducts.some(
-                      (item) => item.id === product.id,
-                    )}
-                    onAdd={() => addItem(product)}
-                    onIncrease={() => increaseQuantity(product)}
-                    onDecrease={() => decreaseQuantity(product)}
-                    onFavourite={() => toggleFavourite(product)}
+                    onAdd={() => handleAdd(product)}
                     onClick={() => navigate(`/customer/product/${product.id}`)}
                   />
                 ))}
               </MenuGrid>
             </section>
           )}
-
-          {/* Browse Full Menu */}
-
-          <section className="px-2 sm:px-4 lg:px-6 xl:px-8">
-            <div
-              className="
-            rounded-[32px]
-            border
-            border-slate-200 dark:border-[#A9BDCF]/40
-            bg-white dark:bg-[#181A1B]
-            p-8
-            text-center
-            shadow-sm
-          "
-            >
-              <h2 className="text-3xl font-bold text-slate-900 dark:text-white">
-                Looking for something else?
-              </h2>
-
-              <p className="mt-3 text-slate-500 dark:text-slate-400">
-                Explore our complete menu with all categories, latest dishes,
-                combos and beverages.
-              </p>
-
-              <button
-                onClick={() => navigate("/customer/menu")}
-                className="
-              mt-6
-              rounded-2xl
-              px-8
-              py-4
-              text-lg
-              font-semibold
-              text-white
-              transition
-              hover:scale-[1.02]
-            "
-                style={{
-                  background: "var(--primary)",
-                }}
-              >
-                Browse Full Menu
-              </button>
-            </div>
-          </section>
         </div>
       </div>
     </motion.div>
