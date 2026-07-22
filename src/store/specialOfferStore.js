@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getOccasionTemplates, sendManualOffer } from "../../offers"; // Aapka offers API path
+import { getOccasionTemplates, sendManualOffer } from "../../src/api/offers"; // Aapka offers API path
 import {
   DEFAULT_TEMPLATES,
   FESTIVE_VALIDITY_DAYS,
