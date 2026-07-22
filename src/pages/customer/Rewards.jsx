@@ -49,6 +49,9 @@ const Rewards = () => {
       const result = await checkDiscount(coupon.code, coupon.sellerId, user?.phone, 0);
       const applied = { ...coupon, ...result };
       setAppliedCoupon(applied);
+      setUsedCoupons((prev) =>
+        prev.includes(coupon.code) ? prev : [...prev, coupon.code]
+      );
       localStorage.setItem("appliedCoupon", JSON.stringify(applied));
     } catch (err) {
       setCouponError(err.response?.data?.message || "Invalid or expired code");
@@ -79,12 +82,12 @@ const Rewards = () => {
     max-w-[1760px]
     space-y-6
     pb-28
-    px-1
+    px-4
     sm:px-2
   "
       >
         {/* Header */}
-        <div className="w-full flex items-center z-50  rounded-xl p-2 justify-between">
+        <div className="w-full flex items-start lg:items-center z-50 rounded-xl p-2 justify-between">
           <div>
             <h1
               className="font-bold text-slate-900 dark:text-white"
@@ -92,6 +95,9 @@ const Rewards = () => {
             >
               Rewards & Loyalty
             </h1>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 lg:hidden">
+              Track your orders and coupons and history
+            </p>
           </div>
 
           <Link
@@ -99,33 +105,51 @@ const Rewards = () => {
             className="
     relative
     flex
-    h-11
-    w-11
+    h-10
+    w-10
     items-center
     justify-center
-    rounded-xl
-    bg-slate-200
-    transition
-    hover:bg-slate-300
+    rounded-full
+    bg-slate-100/70
+    transition-colors
+    hover:bg-slate-200/70
+    dark:bg-white/5
+    dark:hover:bg-white/10
+    lg:h-11
+    lg:w-11
+    lg:rounded-xl
+    lg:bg-slate-200
+    lg:hover:bg-slate-300
+    lg:dark:bg-slate-200
   "
           >
-            <Bell size={22} className="text-slate-700" />
+            <Bell size={20} strokeWidth={1.75} className="text-slate-600 dark:text-slate-300 lg:h-[22px] lg:w-[22px] lg:text-slate-700" />
 
             <span
               className="
       absolute
-      -right-1
-      -top-1
+      right-0
+      top-0
       flex
-      h-5
-      w-5
+      h-[16px]
+      w-[16px]
       items-center
       justify-center
       rounded-full
       bg-red-500
-      text-[10px]
-      font-bold
+      text-[9px]
+      font-semibold
       text-white
+      ring-2
+      ring-white
+      dark:ring-[#181A1B]
+      lg:-right-1
+      lg:-top-1
+      lg:h-5
+      lg:w-5
+      lg:text-[10px]
+      lg:font-bold
+      lg:ring-0
     "
             >
               3
@@ -135,7 +159,7 @@ const Rewards = () => {
 
         {/* Loyalty */}
 
-        <div className="rounded-3xl bg-white shadow-sm border border-slate-200 p-6">
+        <div className="space-y-6 lg:rounded-3xl lg:bg-white lg:shadow-sm lg:border lg:border-slate-200 lg:p-6">
           <section className="space-y-6">
             <LoyaltyCard data={loyalty} />
 

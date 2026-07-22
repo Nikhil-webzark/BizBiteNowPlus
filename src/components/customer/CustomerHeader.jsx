@@ -1,159 +1,263 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useRef, useState } from "react";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Bell, LayoutGrid, ShoppingCart, User, Search } from "lucide-react";
+
 import { useCart } from "../../context/CartContext";
-import { isCustomerLoggedIn, getMyProfile } from "../../api/customer/authApi";
-
-const storeInfo = {
-  name: "Store Name",
-  initials: "SN",
-  brandColor: "#E8622D",
-};
-
-
+import { isCustomerLoggedIn } from "../../api/customer/authApi";
 
 const CustomerHeader = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { totalItems } = useCart();
-  const [customerName, setCustomerName] = useState(null);
+
+  const cartCtx = useCart();
+  const totalItems = cartCtx?.totalItems || 0;
+
+  const customerName = isCustomerLoggedIn()
+    ? "Customer"
+    : null;
+
   const [search, setSearch] = useState("");
+
+  const [storeInfo] = useState({
+    name: "BizBite Store",
+    initials: "BB",
+    brandColor: "#E8622D",
+  });
+
   const debounceRef = useRef(null);
 
+
+  // Search Navigation
   const goToSearch = (value) => {
-    const onMenu = location.pathname === "/menu";
+    const onMenu = location.pathname.includes("/menu");
+
     if (value.trim()) {
-      navigate(`/menu?search=${encodeURIComponent(value.trim())}`, { replace: onMenu });
+      navigate(
+        `/customer/menu?search=${encodeURIComponent(value.trim())}`,
+        {
+          replace: onMenu,
+        }
+      );
     } else if (onMenu) {
-      navigate("/menu", { replace: true });
+      navigate("/customer/menu", {
+        replace: true,
+      });
     }
   };
+
 
   const handleSearchChange = (value) => {
     setSearch(value);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => goToSearch(value), 400);
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    debounceRef.current = setTimeout(() => {
+      goToSearch(value);
+    }, 400);
   };
+
 
   const submitSearch = (e) => {
     e.preventDefault();
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
     goToSearch(search);
   };
 
-  useEffect(() => {
-    if (isCustomerLoggedIn()) {
-      getMyProfile()
-        .then((user) => setCustomerName(user.name))
-        .catch(() => {});
-    }
-  }, []);
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm">
+
       <div className="flex items-center justify-between gap-3 px-4 py-3">
-        {/* Store Avatar + Name */}
+
+
+        {/* Store */}
         <button
-          onClick={() => navigate("/storefront")}
+          type="button"
+          onClick={() => navigate("/customer/home")}
           className="flex items-center gap-2 shrink-0 cursor-pointer"
         >
+
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-[16px] shrink-0"
-            style={{ backgroundColor: storeInfo.brandColor }}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-[16px]"
+            style={{
+              backgroundColor: storeInfo.brandColor,
+            }}
           >
             {storeInfo.initials}
           </div>
+
+
           <div className="hidden sm:block text-left">
-            <p className="font-bold text-[#1C1C1C] leading-tight" style={{ fontSize: "16px" }}>
+
+            <p className="font-bold text-[#1C1C1C]">
               {storeInfo.name}
             </p>
-            <p className="text-gray-400 leading-tight" style={{ fontSize: "12px" }}>
+
+            <p className="text-gray-400 text-[10px]">
               POWERED BY BIZBITENOW
             </p>
+
           </div>
+
         </button>
 
-        {/* Search bar */}
+
+
+        {/* Search */}
+
         <form
           onSubmit={submitSearch}
-          className="hidden md:flex flex-1 items-center bg-gray-50 border border-gray-200 rounded-full px-4 gap-2 max-w-md"
-          style={{ minHeight: "42px" }}
+          className="hidden md:flex flex-1 items-center bg-gray-50 border border-gray-200 rounded-full px-4 gap-2 max-w-md min-h-[42px]"
         >
-          <Search size={16} className="text-gray-400 shrink-0" />
+
+          <Search
+            size={16}
+            className="text-gray-400"
+          />
+
+
           <input
             type="text"
             placeholder={`Search in ${storeInfo.name}...`}
             value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full outline-none text-[15px] bg-transparent text-[#1C1C1C] placeholder-gray-400"
-            style={{ fontFamily: "Arial, sans-serif" }}
+            onChange={(e) =>
+              handleSearchChange(e.target.value)
+            }
+            className="w-full outline-none bg-transparent"
           />
+
         </form>
 
-        {/* Menu + Bell + Cart + Customer */}
+
+
+
+        {/* Actions */}
+
         <div className="flex items-center gap-3 shrink-0">
+
+
+          {/* Menu */}
+
           <button
-            onClick={() => navigate("/menu")}
-            className="relative flex items-center justify-center text-gray-500 shrink-0 rounded-xl hover:bg-[#FBE7DD] hover:text-[#E8622D] transition-colors lg:hidden cursor-pointer"
-            style={{ minHeight: "40px", minWidth: "40px" }}
+            type="button"
+            onClick={() => navigate("/customer/menu")}
+            className="lg:hidden"
           >
+
             <LayoutGrid size={20} />
+
           </button>
 
-          <div className="relative">
-            <Link
+
+
+
+          {/* Notifications */}
+
+          <Link
             to="/customer/notifications"
-            className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-slate-200 transition hover:bg-slate-300"
+            className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-slate-200"
           >
-            <Bell size={22} className="text-slate-700" />
+
+            <Bell size={22} />
+
             <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
               3
             </span>
+
           </Link>
-          
-          </div>
+
+
+
+
+
+          {/* Cart */}
 
           <button
-            onClick={() => navigate("/cart")}
-            className="relative flex items-center justify-center text-gray-500 shrink-0 rounded-xl hover:bg-[#FBE7DD] hover:text-[#E8622D] transition-colors lg:hidden cursor-pointer"
-            style={{ minHeight: "40px", minWidth: "40px" }}
+            type="button"
+            onClick={() => navigate("/customer/cart")}
+            className="relative"
           >
+
             <ShoppingCart size={20} />
+
+
             {totalItems > 0 && (
-              <span
-                className="absolute bg-[#E8622D] text-white font-bold rounded-full flex items-center justify-center"
-                style={{ top: "2px", right: "0px", fontSize: "10px", width: "16px", height: "16px" }}
-              >
+
+              <span className="absolute -top-2 -right-2 bg-[#E8622D] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+
                 {totalItems > 9 ? "9+" : totalItems}
+
               </span>
+
             )}
+
           </button>
 
+
+
+
+
+          {/* Profile */}
+
           <button
+            type="button"
             onClick={() =>
-              navigate(isCustomerLoggedIn() ? "/customer/profile" : "/customer/onboarding")
+              navigate(
+                isCustomerLoggedIn()
+                  ? "/customer/profile"
+                  : "/customer/onboarding"
+              )
             }
-            className="flex items-center gap-2 pl-2 sm:border-l border-gray-100 cursor-pointer"
+            className="flex items-center gap-2"
           >
-            <span
-              className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
-              style={{ backgroundColor: "#FBE7DD" }}
-            >
-              <User size={18} style={{ color: "#E8622D" }} />
+
+            <span className="w-9 h-9 rounded-full flex items-center justify-center bg-[#FBE7DD]">
+
+              <User
+                size={18}
+                className="text-[#E8622D]"
+              />
+
             </span>
+
+
+
             <div className="hidden sm:block text-left">
-              <p className="font-bold text-[#1C1C1C] leading-tight" style={{ fontSize: "13px" }}>
+
+              <p className="font-bold text-[13px]">
+
                 {customerName || "Guest"}
+
               </p>
-              <p className="text-gray-400 leading-tight" style={{ fontSize: "11px" }}>
+
+
+              <p className="text-gray-400 text-[11px]">
+
                 {customerName ? "Customer" : "Sign in"}
+
               </p>
+
+
             </div>
+
+
           </button>
+
+
         </div>
+
+
       </div>
+
     </header>
   );
 };
+
 
 export default CustomerHeader;

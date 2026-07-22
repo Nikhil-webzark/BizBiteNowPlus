@@ -43,8 +43,8 @@ const Coupons = ({
         activeTab === "available"
           ? !coupon.expired && !usedCoupons.includes(coupon.code)
           : activeTab === "applied"
-          ? appliedCoupon?.code === coupon.code
-          : coupon.expired;
+            ? appliedCoupon?.code === coupon.code
+            : coupon.expired;
 
       const searchMatch =
         coupon.code
@@ -65,7 +65,7 @@ const Coupons = ({
   ]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6">
 
       <SectionHeader
         title="Active Coupons"
@@ -78,13 +78,16 @@ const Coupons = ({
         <div className="relative">
 
           <Search
-            size={18}
+            size={16}
             className="
               absolute
-              left-4
+              left-3
               top-1/2
               -translate-y-1/2
               text-slate-400
+
+              lg:left-4
+              lg:size-[18px]
             "
           />
 
@@ -97,9 +100,15 @@ const Coupons = ({
             className="
               w-full
               bg-transparent
-              pl-12
+              py-2
+              pl-9
               pr-2
+              text-sm
               outline-none
+
+              lg:py-0
+              lg:pl-12
+              lg:text-base
             "
           />
 
@@ -108,7 +117,7 @@ const Coupons = ({
 
       {/* Tabs */}
 
-      <div className="flex gap-3 overflow-x-auto scrollbar-hide">
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide lg:gap-3">
 
         {tabs.map((tab) => (
           <Chip
@@ -135,12 +144,14 @@ const Coupons = ({
         <div
           className="
             flex
-            gap-5
+            gap-3
             overflow-x-auto
             scrollbar-hide
             pb-2
             snap-x
             snap-mandatory
+
+            lg:gap-5
           "
         >
           {filteredCoupons.map((coupon) => (

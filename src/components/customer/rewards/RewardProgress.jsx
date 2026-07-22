@@ -29,17 +29,17 @@ const RewardProgress = ({ data }) => {
       initial={{ opacity: 0, y: 15 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm"
+      className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm lg:rounded-[32px] lg:p-6"
     >
       {/* Header */}
 
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">
+          <h2 className="text-lg font-bold text-slate-900 lg:text-2xl">
             Stamp Journey
           </h2>
 
-          <p className="mt-2 text-slate-500">
+          <p className="mt-1 text-sm text-slate-500 lg:mt-2 lg:text-base">
             Collect {threshold} stamps to unlock{" "}
             <span className="font-semibold text-slate-700">
               {rewardDetail}
@@ -48,13 +48,13 @@ const RewardProgress = ({ data }) => {
         </div>
 
         <div
-          className="rounded-2xl px-4 py-2 text-white"
+          className="rounded-xl px-3 py-1.5 text-white lg:rounded-2xl lg:px-4 lg:py-2"
           style={{
             background: "var(--primary)",
           }}
         >
-          <p className="text-sm opacity-80">Progress</p>
-          <p className="text-lg font-bold">
+          <p className="text-xs opacity-80 lg:text-sm">Progress</p>
+          <p className="text-sm font-bold lg:text-lg">
             {stampsCollected}/{threshold}
           </p>
         </div>
@@ -62,14 +62,14 @@ const RewardProgress = ({ data }) => {
 
       {/* Stamp Journey */}
 
-      <div className="mt-10">
-        <div className="flex items-center justify-between relative">
+      <div className="mt-6 overflow-x-auto lg:mt-10 lg:overflow-visible">
+        <div className="flex min-w-[420px] items-center justify-between relative lg:min-w-0">
           {/* Line */}
 
-          <div className="absolute left-0 right-0 top-6 h-1 bg-slate-200 rounded-full" />
+          <div className="absolute left-0 right-0 top-[18px] h-1 bg-slate-200 rounded-full lg:top-6" />
 
           <div
-            className="absolute left-0 top-6 h-1 rounded-full transition-all duration-500"
+            className="absolute left-0 top-[18px] h-1 rounded-full transition-all duration-500 lg:top-6"
             style={{
               background: "var(--primary)",
               width: `${(stampsCollected / threshold) * 100}%`,
@@ -89,9 +89,8 @@ const RewardProgress = ({ data }) => {
                 className="relative z-10 flex flex-col items-center"
               >
                 <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-full border-4 border-white shadow-md transition-all ${
-                    current ? "scale-110" : ""
-                  }`}
+                  className={`flex h-9 w-9 items-center justify-center rounded-full border-[3px] border-white shadow-md transition-all lg:h-12 lg:w-12 lg:border-4 ${current ? "scale-110" : ""
+                    }`}
                   style={{
                     background: completed
                       ? "var(--primary)"
@@ -99,16 +98,18 @@ const RewardProgress = ({ data }) => {
                   }}
                 >
                   {completed ? (
-                    <CheckCircle2 size={22} color="#fff" />
+                    <CheckCircle2 size={16} color="#fff" className="lg:hidden" />
                   ) : (
-                    <Lock
-                      size={20}
-                      className="text-slate-500"
-                    />
+                    <Lock size={14} className="text-slate-500 lg:hidden" />
+                  )}
+                  {completed ? (
+                    <CheckCircle2 size={22} color="#fff" className="hidden lg:block" />
+                  ) : (
+                    <Lock size={20} className="hidden text-slate-500 lg:block" />
                   )}
                 </div>
 
-                <span className="mt-3 text-xs font-semibold text-slate-600">
+                <span className="mt-2 text-[10px] font-semibold text-slate-600 lg:mt-3 lg:text-xs">
                   Stamp {stamp}
                 </span>
               </div>
@@ -119,7 +120,7 @@ const RewardProgress = ({ data }) => {
 
           <div className="relative z-10 flex flex-col items-center">
             <div
-              className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-white shadow-lg"
+              className="flex h-11 w-11 items-center justify-center rounded-full border-[3px] border-white shadow-lg lg:h-14 lg:w-14 lg:border-4"
               style={{
                 background:
                   stampsCollected >= threshold
@@ -128,7 +129,18 @@ const RewardProgress = ({ data }) => {
               }}
             >
               <RewardIcon
+                size={18}
+                className="lg:hidden"
+                style={{
+                  color:
+                    stampsCollected >= threshold
+                      ? "#fff"
+                      : "var(--primary)",
+                }}
+              />
+              <RewardIcon
                 size={24}
+                className="hidden lg:block"
                 style={{
                   color:
                     stampsCollected >= threshold
@@ -138,7 +150,7 @@ const RewardProgress = ({ data }) => {
               />
             </div>
 
-            <span className="mt-3 text-xs font-bold text-slate-700">
+            <span className="mt-2 text-[10px] font-bold text-slate-700 lg:mt-3 lg:text-xs">
               Reward
             </span>
           </div>
@@ -148,7 +160,7 @@ const RewardProgress = ({ data }) => {
       {/* Bottom Card */}
 
       <div
-        className="mt-10 rounded-3xl p-5"
+        className="mt-6 rounded-2xl p-3 lg:mt-10 lg:rounded-3xl lg:p-5"
         style={{
           background: "var(--primary-light)",
         }}
@@ -157,7 +169,7 @@ const RewardProgress = ({ data }) => {
           <div className="flex items-center justify-between">
             <div>
               <p
-                className="text-sm font-medium"
+                className="text-xs font-medium lg:text-sm"
                 style={{
                   color: "var(--primary)",
                 }}
@@ -165,17 +177,25 @@ const RewardProgress = ({ data }) => {
                 🎉 Congratulations!
               </p>
 
-              <h3 className="mt-1 text-xl font-bold text-slate-900">
+              <h3 className="mt-1 text-base font-bold text-slate-900 lg:text-xl">
                 {rewardDetail}
               </h3>
 
-              <p className="mt-1 text-slate-500">
+              <p className="mt-1 text-sm text-slate-500 lg:text-base">
                 Your reward is ready to redeem.
               </p>
             </div>
 
             <RewardIcon
+              size={24}
+              className="lg:hidden"
+              style={{
+                color: "var(--primary)",
+              }}
+            />
+            <RewardIcon
               size={34}
+              className="hidden lg:block"
               style={{
                 color: "var(--primary)",
               }}
@@ -185,7 +205,7 @@ const RewardProgress = ({ data }) => {
           <div className="flex items-center justify-between">
             <div>
               <p
-                className="text-sm font-medium"
+                className="text-xs font-medium lg:text-sm"
                 style={{
                   color: "var(--primary)",
                 }}
@@ -193,7 +213,7 @@ const RewardProgress = ({ data }) => {
                 Keep Going!
               </p>
 
-              <h3 className="mt-1 text-xl font-bold text-slate-900">
+              <h3 className="mt-1 text-base font-bold text-slate-900 lg:text-xl">
                 {threshold - stampsCollected} more{" "}
                 {threshold - stampsCollected === 1
                   ? "order"
@@ -201,13 +221,21 @@ const RewardProgress = ({ data }) => {
                 left
               </h3>
 
-              <p className="mt-1 text-slate-500">
+              <p className="mt-1 text-sm text-slate-500 lg:text-base">
                 Unlock <strong>{rewardDetail}</strong>
               </p>
             </div>
 
             <Stamp
+              size={24}
+              className="lg:hidden"
+              style={{
+                color: "var(--primary)",
+              }}
+            />
+            <Stamp
               size={34}
+              className="hidden lg:block"
               style={{
                 color: "var(--primary)",
               }}

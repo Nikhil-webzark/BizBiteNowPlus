@@ -12,9 +12,9 @@ const Card = ({
 }) => {
   const paddings = {
     none: "",
-    sm: "p-4",
-    default: "p-6",
-    lg: "p-8",
+    sm: "p-3 lg:p-4",
+    default: "p-4 lg:p-6",
+    lg: "p-5 lg:p-8",
   };
 
   const shadows = {
@@ -25,8 +25,8 @@ const Card = ({
   };
 
   const radius = {
-    xl: "rounded-2xl",
-    "3xl": "rounded-[30px]",
+    xl: "rounded-xl lg:rounded-2xl",
+    "3xl": "rounded-[22px] lg:rounded-[30px]",
     full: "rounded-full",
   };
 
@@ -35,9 +35,9 @@ const Card = ({
       whileHover={
         hover
           ? {
-              y: -4,
-              scale: 1.01,
-            }
+            y: -4,
+            scale: 1.01,
+          }
           : undefined
       }
       transition={{
@@ -49,20 +49,18 @@ const Card = ({
 
         bg-white dark:bg-[#181A1B]
 
-        ${
-          border
-            ? "border border-slate-200 dark:border-[#A9BDCF]/40"
-            : ""
+        ${border
+          ? "border border-slate-200 dark:border-[#A9BDCF]/40"
+          : ""
         }
 
         ${radius[rounded]}
         ${paddings[padding]}
         ${shadows[shadow]}
 
-        ${
-          onClick
-            ? "cursor-pointer"
-            : ""
+        ${onClick
+          ? "cursor-pointer"
+          : ""
         }
 
         transition-all

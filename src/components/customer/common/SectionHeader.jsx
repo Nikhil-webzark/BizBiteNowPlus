@@ -14,11 +14,13 @@ const SectionHeader = ({
       className={`
         flex
         flex-col
-        gap-4
+        gap-3
 
         sm:flex-row
         sm:items-center
         sm:justify-between
+
+        lg:gap-4
 
         ${centered ? "text-center sm:text-left" : ""}
 
@@ -30,29 +32,34 @@ const SectionHeader = ({
 
       <div className="min-w-0">
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 lg:gap-3">
 
           {Icon && (
             <div
               className="
                 flex
-                h-12
-                w-12
+                h-9
+                w-9
 
                 items-center
                 justify-center
 
-                rounded-2xl
+                rounded-xl
 
                 text-white
 
                 shadow-md
+
+                lg:h-12
+                lg:w-12
+                lg:rounded-2xl
               "
               style={{
                 background: "var(--primary)",
               }}
             >
-              <Icon size={22} />
+              <Icon size={16} className="lg:hidden" />
+              <Icon size={22} className="hidden lg:block" />
             </div>
           )}
 
@@ -61,11 +68,13 @@ const SectionHeader = ({
 
             <h2
               className="
-                text-xl
+                text-base
 
                 font-bold
 
                 text-slate-900 dark:text-white
+
+                lg:text-xl
               "
             >
               {title}
@@ -75,11 +84,14 @@ const SectionHeader = ({
             {subtitle && (
               <p
                 className="
-                  mt-1
+                  mt-0.5
 
-                  text-sm
+                  text-xs
 
                   text-slate-500 dark:text-slate-400
+
+                  lg:mt-1
+                  lg:text-sm
                 "
               >
                 {subtitle}
@@ -104,23 +116,28 @@ const SectionHeader = ({
 
             items-center
 
-            gap-2
+            gap-1.5
 
             self-start
 
             rounded-xl
 
-            px-4
+            px-3
 
-            py-2
+            py-1.5
 
-            text-sm
+            text-xs
 
             font-semibold
 
             transition
 
             hover:opacity-80
+
+            lg:gap-2
+            lg:px-4
+            lg:py-2
+            lg:text-sm
           "
           style={{
             color: "var(--primary)",
@@ -129,7 +146,8 @@ const SectionHeader = ({
 
           {action}
 
-          <ChevronRight size={16} />
+          <ChevronRight size={14} className="lg:hidden" />
+          <ChevronRight size={16} className="hidden lg:block" />
 
         </button>
       )}

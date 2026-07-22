@@ -47,19 +47,23 @@ const EmptyState = ({
         items-center
         justify-center
 
-        rounded-[32px]
+        rounded-[22px]
+        lg:rounded-[32px]
 
         border
         border-slate-200
 
         bg-white
 
-        px-8
-        py-14
+        px-5
+        py-9
 
         text-center
 
         shadow-sm
+
+        lg:px-8
+        lg:py-14
 
         ${className}
       `}
@@ -71,27 +75,35 @@ const EmptyState = ({
           src={image}
           alt={title}
           className="
-            mb-8
+            mb-5
 
-            h-44
-            w-44
+            h-28
+            w-28
 
             object-contain
+
+            lg:mb-8
+            lg:h-44
+            lg:w-44
           "
         />
       ) : (
         <div
           className="
-            mb-8
+            mb-5
 
             flex
-            h-28
-            w-28
+            h-20
+            w-20
 
             items-center
             justify-center
 
             rounded-full
+
+            lg:mb-8
+            lg:h-28
+            lg:w-28
           "
           style={{
             background:
@@ -99,7 +111,15 @@ const EmptyState = ({
           }}
         >
           <Icon
+            size={34}
+            className="lg:hidden"
+            style={{
+              color: "var(--primary)",
+            }}
+          />
+          <Icon
             size={50}
+            className="hidden lg:block"
             style={{
               color: "var(--primary)",
             }}
@@ -109,13 +129,13 @@ const EmptyState = ({
 
       {/* Title */}
 
-      <h2 className="text-2xl font-bold text-slate-900">
+      <h2 className="text-lg font-bold text-slate-900 lg:text-2xl">
         {title}
       </h2>
 
       {/* Description */}
 
-      <p className="mt-3 max-w-md leading-7 text-slate-500">
+      <p className="mt-2 max-w-md text-sm leading-6 text-slate-500 lg:mt-3 lg:leading-7 lg:text-base">
         {description}
       </p>
 
@@ -125,12 +145,14 @@ const EmptyState = ({
         <button
           onClick={onAction}
           className="
-            mt-8
+            mt-5
 
-            rounded-2xl
+            rounded-xl
 
-            px-8
-            py-4
+            px-6
+            py-3
+
+            text-sm
 
             font-semibold
 
@@ -140,6 +162,12 @@ const EmptyState = ({
 
             hover:scale-[1.03]
             active:scale-95
+
+            lg:mt-8
+            lg:rounded-2xl
+            lg:px-8
+            lg:py-4
+            lg:text-base
           "
           style={{
             background:
