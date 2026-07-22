@@ -1,8 +1,4 @@
-import {
-  ChevronDown,
-  ChevronLeft,
-  MapPin,
-} from "lucide-react";
+import { ChevronDown, ChevronLeft, MapPin } from "lucide-react";
 
 const CartHeader = ({
   address = {},
@@ -12,9 +8,18 @@ const CartHeader = ({
 }) => {
   return (
     <header className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-      {/* Left */}
+      {/* Left Section with Back Button & Title */}
       <div className="flex items-start gap-3">
-
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-900 active:scale-95 cursor-pointer"
+            aria-label="Go Back"
+          >
+            <ChevronLeft size={20} />
+          </button>
+        )}
 
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900">
@@ -27,7 +32,7 @@ const CartHeader = ({
         </div>
       </div>
 
-      {/* Address */}
+      {/* Address Selection Button */}
       <button
         type="button"
         onClick={onAddressClick}
@@ -50,16 +55,14 @@ const CartHeader = ({
           duration-200
           hover:border-green-500
           hover:shadow-md
+          cursor-pointer
           md:w-auto
           md:min-w-[300px]
         "
       >
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50">
-            <MapPin
-              size={18}
-              className="text-green-600"
-            />
+            <MapPin size={18} className="text-green-600" />
           </div>
 
           <div className="text-left">
@@ -72,8 +75,7 @@ const CartHeader = ({
             </h3>
 
             <p className="max-w-[180px] truncate text-[10px] text-slate-500">
-              {address.address ||
-                "Select delivery address"}
+              {address.address || address.mohalla || "Select delivery address"}
             </p>
           </div>
         </div>
