@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 
-import useSpecialOfferStore from "../../api/stores/sellerstore/specialOfferStore";
+import useSpecialOfferStore from "../../store/specialOfferStore";
 import { FESTIVE_VALIDITY_DAYS } from "../../data/occasionTemplate";
 import { DEMO_CUSTOMERS } from "../../data/demoCustomers";
 
