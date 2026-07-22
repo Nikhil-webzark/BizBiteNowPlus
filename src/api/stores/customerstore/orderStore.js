@@ -65,7 +65,7 @@ const useOrderStore = create((set, get) => {
       }),
 
     /* -------------------------------------------------------------------------- */
-    /*                                CART ACTIONS                                */
+    /*                               CART ACTIONS                                 */
     /* -------------------------------------------------------------------------- */
 
     setCartItems: (items) => set({ cartItems: items }),
@@ -150,8 +150,45 @@ const useOrderStore = create((set, get) => {
       setError();
 
       try {
-        const response =
-          await orderApi.getCustomerOrders(params);
+        // 1. Read Zustand persisted state from 'bizbite-auth'
+        let authState = {};
+        try {
+          const rawAuth = localStorage.getItem("bizbite-auth");
+          if (rawAuth) {
+            authState = JSON.parse(rawAuth)?.state || {};
+          }
+        } catch (e) {
+          console.error("Failed to parse bizbite-auth from localStorage", e);
+        }
+
+        // 2. Extract URL params if present
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlSellerId = urlParams.get("seller_id") || urlParams.get("seller");
+
+        // 3. Extract phone number safely
+        const customer_phone =
+          params?.customer_phone ||
+          authState?.user?.phone ||
+          authState?.user?.phoneNumber ||
+          localStorage.getItem("customer_phone") ||
+          localStorage.getItem("user_phone");
+
+        // 4. Extract seller_id safely
+        const seller_id =
+          params?.seller_id ||
+          authState?.user?.seller_id ||
+          authState?.profile?.seller_id ||
+          urlSellerId ||
+          localStorage.getItem("seller_id") ||
+          localStorage.getItem("current_seller_id");
+
+        const queryParams = {
+          ...params,
+          seller_id,
+          customer_phone,
+        };
+
+        const response = await orderApi.getCustomerOrders(queryParams);
 
         set({
           orders:
@@ -258,7 +295,7 @@ const useOrderStore = create((set, get) => {
     },
 
     /* -------------------------------------------------------------------------- */
-    /*                              CANCEL ORDER                                  */
+    /*                               CANCEL ORDER                                 */
     /* -------------------------------------------------------------------------- */
 
     cancelOrder: async (orderId) => {
@@ -294,7 +331,7 @@ const useOrderStore = create((set, get) => {
     },
 
     /* -------------------------------------------------------------------------- */
-    /*                               TRACK ORDER                                  */
+    /*                                TRACK ORDER                                 */
     /* -------------------------------------------------------------------------- */
 
     trackOrder: async (orderId) => {
@@ -322,7 +359,7 @@ const useOrderStore = create((set, get) => {
     },
 
     /* -------------------------------------------------------------------------- */
-    /*                                CHECKOUT                                    */
+    /*                                  CHECKOUT                                  */
     /* -------------------------------------------------------------------------- */
 
     initiateCheckout: async (payload) => {
@@ -361,7 +398,7 @@ const useOrderStore = create((set, get) => {
     },
 
     /* -------------------------------------------------------------------------- */
-    /*                                  DINE-IN                                   */
+    /*                                   DINE-IN                                  */
     /* -------------------------------------------------------------------------- */
 
     createDineInOrder: async (payload) => {
@@ -393,7 +430,7 @@ const useOrderStore = create((set, get) => {
     },
 
     /* -------------------------------------------------------------------------- */
-    /*                                  GETTERS                                   */
+    /*                                   GETTERS                                  */
     /* -------------------------------------------------------------------------- */
 
     getCurrentOrders: () =>

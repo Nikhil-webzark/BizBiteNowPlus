@@ -1,351 +1,90 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import {
-  ShoppingBag,
-  Bell,
-} from "lucide-react";
-
-import SectionHeader from "../common/SectionHeader";
-import MobileOrdersSkeleton from "../../../components/customer/skeleton/MobileOrdersSkeleton";
-import MobileCurrentCard from "./MobileCurrentCard";
-import MobileTimeline from "./MobileTimeline";
-import ContactDeliveryCard from "./ContactDeliveryCard";
-import CompactHistoryCard from "./CompactHistoryCard";
-import CurrentOrderSection from "./CurrentOrderSection";
-
+import { ShoppingBag, CheckCircle2 } from "lucide-react";
 import useOrderStore from "../../../api/stores/customerstore/orderStore";
+import CompactHistoryCard from "./CompactHistoryCard";
+import CurrentOrderCard from "./OrderCard";
+import OrderSkeleton from "../skeleton/OrderSkeleton";
 
-const MobileOrders = () => {
-  const navigate = useNavigate();
+export default function MobileOrders({ onTrack, onView, onReorder }) {
+  // Store se state aur getters consume karein (No useEffect fetching here)
+  const { loading, getCurrentOrders, getOrderHistory } = useOrderStore();
 
-  const {
-    orders,
-    loading,
-    error,
-    fetchOrders,
-    reorder,
-    getCurrentOrders,
-    getOrderHistory,
-  } = useOrderStore();
+  const currentOrders = getCurrentOrders ? getCurrentOrders() : [];
+  const orderHistory = getOrderHistory ? getOrderHistory() : [];
 
-  const [reordering, setReordering] =
-    useState(null);
-
-  const currentOrders =
-    getCurrentOrders();
-
-  const history =
-    getOrderHistory();
-
-  useEffect(() => {
-    fetchOrders();
-
-    const interval = setInterval(() => {
-      fetchOrders();
-    }, 30000);
-
-    return () =>
-      clearInterval(interval);
-  }, [fetchOrders]);
-
-  const handleViewOrder = (
-    order
-  ) => {
-    navigate(
-      `/customer/orders/${order.id}`,
-      {
-        state: {
-          order,
-        },
-      }
-    );
-  };
-
-  const handleReorder = async (
-    order
-  ) => {
-    try {
-      setReordering(order.id);
-
-      await reorder({
-        orderId: order.id,
-      });
-
-      navigate("/customer/cart");
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setReordering(null);
-    }
-  };
-
-  if (loading.fetchOrders) {
-    return (
-      <MobileOrdersSkeleton />
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center px-6">
-        <div className="text-center">
-          <ShoppingBag
-            size={42}
-            className="mx-auto text-red-500"
-          />
-
-          <h2 className="mt-4 text-xl font-bold">
-            Failed to load orders
-          </h2>
-
-          <p className="mt-2 text-sm text-slate-500">
-            {error.message ||
-              "Something went wrong."}
-          </p>
-        </div>
-      </div>
-    );
+  if (loading?.fetchOrders) {
+    return <OrderSkeleton />;
   }
 
   return (
-    <motion.div
-      initial={{
-        opacity: 0,
-        y: 15,
-      }}
-      animate={{
-        opacity: 1,
-        y: 0,
-      }}
-      transition={{
-        duration: 0.35,
-      }}
-      className="space-y-5 pb-24"
-    >
-      <div className="px-1">
-        <div className="mt-5 flex w-full items-center justify-between rounded-xl p-2">
-          <SectionHeader
-            title="Your Orders"
-            subtitle="Track your orders in real time"
-          />
-
-          <Link
-            to="/customer/notifications"
-            className="
-              relative
-              flex
-              h-11
-              w-11
-              items-center
-              justify-center
-              rounded-xl
-              bg-slate-200
-              transition
-              hover:bg-slate-300
-            "
-          >
-            <Bell
-              size={22}
-              className="text-slate-700"
-            />
-
-            <span
-              className="
-                absolute
-                -right-1
-                -top-1
-                flex
-                h-5
-                w-5
-                items-center
-                justify-center
-                rounded-full
-                bg-red-500
-                text-[10px]
-                font-bold
-                text-white
-              "
-            >
-              3
-            </span>
-          </Link>
+    <div className="space-y-6 pb-24 px-4 pt-4">
+      {/* Active Orders Section */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">Active Orders</h2>
+          <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-600">
+            <CheckCircle2 size={14} />
+            {currentOrders.length} Active
+          </span>
         </div>
-                {/* Current Orders */}
 
-        {currentOrders.length > 0 && (
-          <section className="mt-6">
-            <CurrentOrderSection
-              title="Current Orders"
-              subtitle={`${currentOrders.length} Active Orders`}
-            >
-              {currentOrders.map((order) => (
-                <motion.div
-                  key={order.id}
-                  initial={{
-                    opacity: 0,
-                    y: 12,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                  }}
-                  transition={{
-                    duration: 0.25,
-                  }}
-                  className="
-                    w-full
-                    max-w-full
-                    snap-center
-                    shrink-0
-                    space-y-4
-                    rounded-[14px]
-                    bg-white
-                    shadow-sm
-                  "
-                >
-                  <MobileCurrentCard
-                    order={order}
-                    loading={
-                      reordering === order.id
-                    }
-                    onView={() =>
-                      handleViewOrder(order)
-                    }
-                    onReorder={() =>
-                      handleReorder(order)
-                    }
-                  />
-
-                  <div className="my-4 border-t border-slate-200" />
-
-                  <MobileTimeline
-                    timeline={
-                      order.tracking?.steps || []
-                    }
-                    currentStep={
-                      order.tracking?.currentStep
-                    }
-                  />
-
-                  <ContactDeliveryCard
-                    order={order}
-                  />
-                </motion.div>
-              ))}
-            </CurrentOrderSection>
-          </section>
-        )}
-
-        {/* Divider */}
-
-        <div className="my-6 flex justify-center">
-          <div
-            className="
-              h-1.5
-              w-16
-              rounded-full
-              bg-slate-300
-            "
-          />
-        </div>
-                {/* Order History */}
-
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900">
-              Order History
-            </h2>
-
-            {history.length > 0 && (
-              <span className="text-xs font-medium text-slate-500">
-                {history.length} Orders
-              </span>
-            )}
+        {currentOrders.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center">
+            <ShoppingBag className="mx-auto text-slate-300" size={36} />
+            <p className="mt-3 text-sm text-slate-500 font-medium">
+              No active orders right now
+            </p>
           </div>
+        ) : (
+          <div className="space-y-4">
+            {currentOrders.map((order) => {
+              const orderId = order.id || order._id;
+              return (
+                <CurrentOrderCard
+                  key={orderId}
+                  order={order}
+                  onTrack={() => onTrack && onTrack(order)}
+                  onView={() => onView && onView(order)}
+                  onReorder={() => onReorder && onReorder(order)}
+                />
+              );
+            })}
+          </div>
+        )}
+      </section>
 
-          {history.length === 0 ? (
-            <motion.div
-              initial={{
-                opacity: 0,
-                scale: 0.98,
-              }}
-              animate={{
-                opacity: 1,
-                scale: 1,
-              }}
-              className="
-                rounded-2xl
-                border-2
-                border-dashed
-                border-slate-300
-                bg-white
-                px-6
-                py-10
-                text-center
-              "
-            >
-              <ShoppingBag
-                size={34}
-                className="mx-auto text-slate-400"
-              />
+      {/* Order History Section */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">Order History</h2>
+          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+            {orderHistory.length} Orders
+          </span>
+        </div>
 
-              <h3 className="mt-3 text-lg font-bold">
-                No Previous Orders
-              </h3>
-
-              <p className="mt-2 text-sm text-slate-500">
-                Your completed and cancelled
-                orders will appear here.
-              </p>
-            </motion.div>
-          ) : (
-            <div className="space-y-3 pb-8">
-              {history.map(
-                (order, index) => (
-                  <motion.div
-                    key={order.id}
-                    initial={{
-                      opacity: 0,
-                      y: 12,
-                    }}
-                    animate={{
-                      opacity: 1,
-                      y: 0,
-                    }}
-                    transition={{
-                      delay:
-                        index * 0.05,
-                      duration: 0.25,
-                    }}
-                  >
-                    <CompactHistoryCard
-                      order={order}
-                      loading={
-                        reordering ===
-                        order.id
-                      }
-                      onView={() =>
-                        handleViewOrder(
-                          order
-                        )
-                      }
-                      onRate={() => {}}
-                      onReorder={() =>
-                        handleReorder(
-                          order
-                        )
-                      }
-                    />
-                  </motion.div>
-                )
-              )}
-            </div>
-          )}
-        </section>
-              </div>
-    </motion.div>
+        {orderHistory.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center">
+            <ShoppingBag className="mx-auto text-slate-300" size={36} />
+            <p className="mt-3 text-sm text-slate-500 font-medium">
+              No order history available
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {orderHistory.map((order) => {
+              const orderId = order.id || order._id;
+              return (
+                <CompactHistoryCard
+                  key={orderId}
+                  order={order}
+                  onView={() => onView && onView(order)}
+                  onReorder={() => onReorder && onReorder(order)}
+                  onRate={() => {}}
+                />
+              );
+            })}
+          </div>
+        )}
+      </section>
+    </div>
   );
-};
-
-export default MobileOrders;
+}

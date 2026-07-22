@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   PartyPopper,
@@ -16,31 +16,13 @@ import {
   X,
 } from "lucide-react";
 
-import { getOccasionTemplates, sendManualOffer } from "../../api/offers";
-import {
-  DEFAULT_TEMPLATES,
-  FESTIVE_VALIDITY_DAYS,
-  fillTemplate,
-} from "../../data/occasionTemplate";
+import useSpecialOfferStore from "../../api/stores/sellerstore/specialOfferStore";
+import { FESTIVE_VALIDITY_DAYS } from "../../data/occasionTemplate";
 import { DEMO_CUSTOMERS } from "../../data/demoCustomers";
 
-const toISODate = (d) => d.toISOString().slice(0, 10);
-const addDays = (d, n) => {
-  const copy = new Date(d);
-  copy.setDate(copy.getDate() + n);
-  return copy;
-};
 const formatShortDate = (iso) =>
   new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 
-// "percentage" | "flat" | "delivery" — matches the customer-side coupon
-// data convention (couponsData.js / CouponCard.jsx), not the old
-// "percent"/"amount" naming.
-const formatDiscount = (type, value) => {
-  if (type === "delivery") return "free delivery";
-  if (type === "percentage") return `${value}% off`;
-  return `₹${value} off`;
-};
 const formatDiscountBadge = (type, value) => {
   if (type === "delivery") return "FREE DELIVERY";
   if (type === "percentage") return `${value}% OFF`;
@@ -48,69 +30,62 @@ const formatDiscountBadge = (type, value) => {
 };
 
 const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
-  const [templates, setTemplates] = useState(DEFAULT_TEMPLATES);
+  const {
+    templates,
+    recipientMode,
+    selectedCustomerIds,
+    customerSearch,
+    templateId,
+    discountType,
+    discountValue,
+    minOrder,
+    maxDiscount,
+    validityMode,
+    validityStart,
+    validityEnd,
+    message,
+    discountCode,
+    sending,
+    sentCount,
 
-  const [recipientMode, setRecipientMode] = useState("all");
-  const [selectedCustomerIds, setSelectedCustomerIds] = useState([]);
-  const [customerSearch, setCustomerSearch] = useState("");
+    // Store Actions
+    fetchTemplates,
+    updateMessage,
+    setRecipientMode,
+    setCustomerSearch,
+    setDiscountType,
+    setDiscountValue,
+    setMinOrder,
+    setMaxDiscount,
+    setValidityStart,
+    setValidityEnd,
+    setMessage,
+    setDiscountCode,
+    setTemplateId,
+    toggleCustomer,
+    selectAllFiltered,
+    clearSelection,
+    sendOffer,
+  } = useSpecialOfferStore();
 
-  const [templateId, setTemplateId] = useState(DEFAULT_TEMPLATES[0].id);
-
-  const [discountType, setDiscountType] = useState("percentage");
-  const [discountValue, setDiscountValue] = useState(20);
-  const [minOrder, setMinOrder] = useState(299);
-  const [maxDiscount, setMaxDiscount] = useState(150);
-
-  const [validityMode, setValidityMode] = useState("festive");
-  const [validityStart, setValidityStart] = useState(toISODate(new Date()));
-  const [validityEnd, setValidityEnd] = useState(toISODate(addDays(new Date(), 5)));
-
-  const [message, setMessage] = useState("");
-
-  const [discountCode, setDiscountCode] = useState("DIWALI20");
-
-  const [sending, setSending] = useState(false);
-
-  const [sentCount, setSentCount] = useState(null);
-
+  // Load Templates on Mount
   useEffect(() => {
-    getOccasionTemplates()
-      .then((res) => {
-        if (res.length) {
-          setTemplates(res);
-        }
-      })
-      .catch(() => {
-        // fallback templates
-      });
-  }, []);
+    fetchTemplates();
+  }, [fetchTemplates]);
 
-  // Festive templates get a fixed, non-editable validity window. Generic
-  // gets a custom range the seller picks by hand.
+  // Sync / Auto-fill message template on inputs change
   useEffect(() => {
-    const days = FESTIVE_VALIDITY_DAYS[templateId];
-    const today = new Date();
-    if (days) {
-      setValidityMode("festive");
-      setValidityStart(toISODate(today));
-      setValidityEnd(toISODate(addDays(today, days)));
-    } else {
-      setValidityMode("custom");
-      setValidityStart(toISODate(today));
-      setValidityEnd(toISODate(addDays(today, 7)));
-    }
-  }, [templateId]);
-
-  useEffect(() => {
-    const selected = templates.find((t) => t.id === templateId) || templates[0];
-    const filled = fillTemplate(selected.body, {
-      code: discountCode,
-      shop: shopName,
-      discount: formatDiscount(discountType, discountValue),
-    });
-    setMessage(`${filled}\n\nValid till ${formatShortDate(validityEnd)}.`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateId, templates, discountCode, discountType, discountValue, validityEnd]);
+    updateMessage(shopName);
+  }, [
+    templateId,
+    templates,
+    discountCode,
+    discountType,
+    discountValue,
+    validityEnd,
+    shopName,
+    updateMessage,
+  ]);
 
   const filteredCustomers = useMemo(() => {
     const q = customerSearch.trim().toLowerCase();
@@ -120,54 +95,14 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
     );
   }, [customerSearch]);
 
-  function toggleCustomer(id) {
-    setSelectedCustomerIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  }
-
-  function selectAllFiltered() {
-    setSelectedCustomerIds(filteredCustomers.map((c) => c.id));
-  }
-
-  function clearSelection() {
-    setSelectedCustomerIds([]);
-  }
-
   const validityInvalid = validityMode === "custom" && validityEnd <= validityStart;
   const noCustomersPicked = recipientMode === "select" && selectedCustomerIds.length === 0;
   const sendDisabled = sending || noCustomersPicked || validityInvalid;
 
-  async function handleSend() {
+  const handleSend = () => {
     if (sendDisabled) return;
-    setSending(true);
-    setSentCount(null);
-
-    try {
-      const result = await sendManualOffer({
-        recipientMode,
-        customerIds: recipientMode === "select" ? selectedCustomerIds : undefined,
-        templateId,
-        message,
-        discountCode,
-        discountType,
-        discountValue: discountType === "delivery" ? 0 : discountValue,
-        minOrder,
-        maxDiscount: discountType === "delivery" ? maxDiscount : maxDiscount,
-        validityMode,
-        validityStart,
-        validityEnd,
-      });
-
-      setSentCount(result.sentCount);
-    } catch {
-      setSentCount(
-        recipientMode === "all" ? customerCount : selectedCustomerIds.length
-      );
-    } finally {
-      setSending(false);
-    }
-  }
+    sendOffer(customerCount);
+  };
 
   return (
     <motion.section
@@ -177,7 +112,6 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
       className="rounded-2xl border border-slate-200 bg-white shadow-lg"
     >
       {/* Header */}
-
       <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-5">
         <div className="rounded-xl bg-[#1A4D2E]/10 p-3">
           <PartyPopper size={22} className="text-[#1A4D2E]" />
@@ -187,7 +121,6 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
           <h2 className="text-xl font-semibold text-[#1A4D2E]">
             Special Occasion Offers
           </h2>
-
           <p className="text-sm text-slate-500">
             Send festive and promotional offers to your customers.
           </p>
@@ -195,8 +128,7 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
       </div>
 
       <div className="space-y-8 p-6">
-        {/* Recipient */}
-
+        {/* Recipient Mode Selection */}
         <div>
           <label className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#1A4D2E]">
             <Users size={18} />
@@ -215,15 +147,9 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
             >
               <div className="flex items-center gap-3">
                 <Users className="text-[#1A4D2E]" size={22} />
-
                 <div className="text-left">
-                  <h4 className="font-semibold text-[#1A4D2E]">
-                    All Customers
-                  </h4>
-
-                  <p className="text-sm text-slate-500">
-                    {customerCount} customers
-                  </p>
+                  <h4 className="font-semibold text-[#1A4D2E]">All Customers</h4>
+                  <p className="text-sm text-slate-500">{customerCount} customers</p>
                 </div>
               </div>
 
@@ -247,12 +173,8 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
             >
               <div className="flex items-center gap-3">
                 <UserRound className="text-[#1A4D2E]" size={22} />
-
                 <div className="text-left">
-                  <h4 className="font-semibold text-[#1A4D2E]">
-                    Selected Customers
-                  </h4>
-
+                  <h4 className="font-semibold text-[#1A4D2E]">Selected Customers</h4>
                   <p className="text-sm text-slate-500">
                     {selectedCustomerIds.length > 0
                       ? `${selectedCustomerIds.length} chosen`
@@ -271,7 +193,7 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
             </button>
           </div>
 
-          {/* Customer picker */}
+          {/* Customer Selection Drawer */}
           <AnimatePresence>
             {recipientMode === "select" && (
               <motion.div
@@ -292,7 +214,7 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
                   />
                   <button
                     type="button"
-                    onClick={selectAllFiltered}
+                    onClick={() => selectAllFiltered(filteredCustomers)}
                     className="whitespace-nowrap text-xs font-semibold text-[#1A4D2E] hover:underline"
                   >
                     Select all
@@ -363,7 +285,6 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
         </div>
 
         {/* Occasion Templates */}
-
         <div>
           <label className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#1A4D2E]">
             <Gift size={18} />
@@ -374,7 +295,8 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
             {templates.map((template) => (
               <button
                 key={template.id}
-                onClick={() => setTemplateId(template.id)}
+                type="button"
+                onClick={() => setTemplateId(template.id, shopName)}
                 className={`rounded-xl border px-5 py-3 font-medium transition ${
                   templateId === template.id
                     ? "border-[#1A4D2E] bg-[#1A4D2E] text-white"
@@ -387,8 +309,7 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
           </div>
         </div>
 
-        {/* Discount */}
-
+        {/* Discount Details */}
         <div className="grid gap-6 md:grid-cols-2">
           <div>
             <label className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#1A4D2E]">
@@ -408,6 +329,7 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
               >
                 <Percent size={14} /> Percent
               </button>
+
               <button
                 type="button"
                 onClick={() => setDiscountType("flat")}
@@ -419,6 +341,7 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
               >
                 <IndianRupee size={14} /> Flat amount
               </button>
+
               <button
                 type="button"
                 onClick={() => setDiscountType("delivery")}
@@ -466,6 +389,7 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
                   />
                 </div>
               </div>
+
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-500">
                   Max. discount cap
@@ -486,8 +410,7 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
             </div>
           </div>
 
-          {/* Validity */}
-
+          {/* Validity Setup */}
           <div>
             <label className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#1A4D2E]">
               <CalendarClock size={18} />
@@ -513,7 +436,6 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
                   <input
                     type="date"
                     value={validityStart}
-                    min={toISODate(new Date())}
                     onChange={(e) => setValidityStart(e.target.value)}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#1A4D2E] focus:ring-2 focus:ring-[#1A4D2E]/20"
                   />
@@ -536,8 +458,7 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
           </div>
         </div>
 
-        {/* Message */}
-
+        {/* Offer Message Textarea */}
         <div>
           <label className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#1A4D2E]">
             <MessageSquare size={18} />
@@ -551,8 +472,8 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
             className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none transition focus:border-[#1A4D2E] focus:ring-2 focus:ring-[#1A4D2E]/20"
           />
         </div>
-        {/* Discount Code */}
 
+        {/* Discount Code */}
         <div>
           <label className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#1A4D2E]">
             <Gift size={18} />
@@ -562,14 +483,13 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
           <input
             type="text"
             value={discountCode}
-            onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+            onChange={(e) => setDiscountCode(e.target.value)}
             placeholder="DIWALI20"
             className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none transition focus:border-[#1A4D2E] focus:ring-2 focus:ring-[#1A4D2E]/20"
           />
         </div>
 
         {/* Live Preview */}
-
         <div>
           <label className="mb-3 text-sm font-semibold text-[#1A4D2E]">
             Live Preview
@@ -585,7 +505,6 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
                 <h3 className="font-semibold text-[#1A4D2E]">
                   Customer Message
                 </h3>
-
                 <p className="text-sm text-slate-500">
                   This is exactly what customers will receive.
                 </p>
@@ -623,8 +542,7 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
         </div>
       </div>
 
-      {/* Footer */}
-
+      {/* Footer / Send Action */}
       <div className="flex items-center justify-between border-t border-slate-200 px-6 py-5">
         <div>
           {sentCount !== null && (
@@ -648,7 +566,6 @@ const SpecialOffers = ({ shopName = "Your Shop", customerCount = 142 }) => {
           className="flex items-center gap-2 rounded-xl bg-[#F4A300] px-6 py-3 font-semibold text-[#1A4D2E] transition hover:bg-[#dc9200] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <PartyPopper size={18} />
-
           {sending ? "Sending..." : "Send Offer"}
         </motion.button>
       </div>
