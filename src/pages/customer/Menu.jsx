@@ -68,6 +68,7 @@ const Menu = () => {
   const fetchCart = useCartStore((state) => state.fetchCart);
 
   const [activeCategory, setActiveCategory] = useState("all");
+  const [prevCategory, setPrevCategory] = useState(activeCategory);
   const [vegType, setVegType] = useState("all");
   const [sortBy, setSortBy] = useState("featured");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -95,13 +96,18 @@ const Menu = () => {
     fetchStorefrontCatalog(sellerId, {
       category: activeCategory !== "all" ? activeCategory : undefined,
     });
-    setVisibleCount(PAGE_SIZE);
   }, [
     sellerId,
     activeCategory,
     fetchStorefrontCatalog,
     fetchStorefrontCategories,
   ]);
+
+
+  if (activeCategory !== prevCategory) {
+    setPrevCategory(activeCategory);
+    setVisibleCount(PAGE_SIZE);
+  }
 
   // Load the cart once on mount so quantities reflect what's already added
   useEffect(() => {
@@ -194,10 +200,13 @@ const Menu = () => {
   // what the backend's GET /cart response returns per item — if the real
   // response uses a nested `item.product._id` instead, update this line.
   const getCartItem = (productId) =>
-    cartItems.find(
-      (item) =>
-        (item.product_id ?? item.productId ?? item.product?._id) === productId,
-    );
+    cartItems.find((item) => {
+      const pid =
+        typeof item.product_id === "object"
+          ? item.product_id?._id
+          : (item.product_id ?? item.productId ?? item.product?._id);
+      return pid === productId;
+    });
 
   const handleAdd = (product) => addToCart(product).catch(() => {});
 

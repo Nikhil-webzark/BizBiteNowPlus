@@ -21,7 +21,6 @@ import HorizontalSection from "../../components/customer/home/HorizontalSection"
 import QROrderCardSkeleton from "../../components/customer/skeleton/QROrderCardSkeleton";
 import BannerSkeleton from "../../components/customer/skeleton/BannerSkeleton";
 import HeroSkeleton from "../../components/customer/skeleton/HeroSkeleton";
-import HorizontalSectionSkeleton from "../../components/customer/skeleton/HorizontalSectionSkeleton";
 
 const normalizeProduct = (p) => ({
   ...p,
@@ -187,10 +186,13 @@ const Home = () => {
   );
 
   const getCartItem = (productId) =>
-    cartItems.find(
-      (item) =>
-        (item.product_id ?? item.productId ?? item.product?._id) === productId,
-    );
+  cartItems.find((item) => {
+    const pid =
+      typeof item.product_id === "object"
+        ? item.product_id?._id
+        : (item.product_id ?? item.productId ?? item.product?._id);
+    return pid === productId;
+  });
 
   const handleAdd = (product) => addToCart(product).catch(() => {});
 

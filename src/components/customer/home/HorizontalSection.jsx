@@ -66,9 +66,13 @@ const HorizontalSection = ({
       >
         {products.map((product) => {
           const quantity =
-            cartItems.find(
-              (item) => item.productId === product.id,
-            )?.quantity || 0;
+            cartItems.find((item) => {
+              const pid =
+                typeof item.product_id === "object"
+                  ? item.product_id?._id
+                  : (item.product_id ?? item.productId ?? item.product?._id);
+              return pid === product.id;
+            })?.quantity || 0;
 
           const favourite = favouriteProducts.some(
             (item) => item.id === product.id,
